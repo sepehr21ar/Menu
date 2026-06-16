@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+menu_maker.db
+uvicorn.*.log
+static/uploads/*
+!static/uploads/.gitkeep
