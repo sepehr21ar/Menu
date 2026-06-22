@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Menu Maker</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Menu Maker</a>
+    <nav class="nav" id="nav-auth"></nav>
+  </header>
+
+  <main>
+    <section class="auth-panel">
+      <h1>Owner login</h1>
+      <form id="login-form" class="stack">
+        <label>Email
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>Password
+          <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <button class="button" type="submit">Login</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearFormMessage(event.target);
+      setLoading(event.target, true, 'Logging in...');
+      try {
+        await apiFetch('/api/login', { method: 'POST', body: new FormData(event.target) });
+        showToast('Welcome back.');
+        window.location.href = '/frontend/dashboard.html';
+      } catch (error) {
+        setFormMessage(event.target, error.message, 'error');
+      } finally {
+        setLoading(event.target, false);
+      }
+    });
+  </script>
+</body>
+</html>

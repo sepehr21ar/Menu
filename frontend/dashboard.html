@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Menu Maker</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Menu Maker</a>
+    <nav class="nav" id="nav-auth"></nav>
+  </header>
+
+  <main>
+    <section class="page-header">
+      <h1>My menus</h1>
+      <form id="new-menu-form" class="inline-form">
+        <input name="title" placeholder="Menu name" required>
+        <input name="currency" placeholder="$" value="$" aria-label="Currency">
+        <button class="button" type="submit">Create menu</button>
+      </form>
+    </section>
+    <section class="menu-grid" id="menus-container"></section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    const menusContainer = document.getElementById('menus-container');
+
+    function renderMenus(menus) {
+      if (!menus.length) {
+        menusContainer.innerHTML = '<div class="empty-state">No menus yet. Create your first menu above.</div>';
+        return;
+      }
+
+      menusContainer.innerHTML = menus.map((menu) => `
+        <article class="menu-card">
+          <div>
+            <h2>${escapeHtml(menu.title)}</h2>
+            <p>${menu.is_published ? 'Published' : 'Hidden'} · ${escapeHtml(menu.currency)}</p>
+          </div>
+          ${menu.qr_image_path ? `<img class="qr-thumb" src="${menu.qr_image_path}" alt="QR code for ${escapeHtml(menu.title)}">` : '<div class="qr-placeholder">No QR yet</div>'}
+          <div class="card-actions">
+            <a class="button small" href="/frontend/edit_menu.html?id=${menu.id}">Edit</a>
+            <a class="button small ghost" href="/m/${menu.slug}" target="_blank" rel="noreferrer">View</a>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    async function loadMenus() {
+      try {
+        menusContainer.innerHTML = '<div class="empty-state">Loading menus...</div>';
+        renderMenus(await apiFetch('/api/menus'));
+      } catch (error) {
+        if (error.message === 'Not authenticated') {
+          window.location.href = '/frontend/login.html';
+          return;
+        }
+        menusContainer.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    document.getElementById('new-menu-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearFormMessage(event.target);
+      setLoading(event.target, true, 'Creating...');
+      try {
+        await apiFetch('/api/menus', { method: 'POST', body: new FormData(event.target) });
+        event.target.reset();
+        event.target.currency.value = '$';
+        showToast('Menu created.');
+        await loadMenus();
+      } catch (error) {
+        setFormMessage(event.target, error.message, 'error');
+      } finally {
+        setLoading(event.target, false);
+      }
+    });
+
+    loadMenus();
+  </script>
+</body>
+</html>
