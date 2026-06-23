@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit menu - Menu Maker</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Menu Maker</a>
+    <nav class="nav" id="nav-auth"></nav>
+  </header>
+
+  <main id="edit-content">
+    <section class="empty-state">Loading menu...</section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    const menuId = new URLSearchParams(window.location.search).get('id');
+    const editContent = document.getElementById('edit-content');
+    let currentMenu = null;
+
+    function renderItems(category) {
+      if (!category.items.length) {
+        return '<p class="muted">No items in this category yet.</p>';
+      }
+
+      return `
+        <div class="items">
+          ${category.items.map((item) => `
+            <div class="item-row">
+              ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : '<div class="image-placeholder"></div>'}
+              <div class="item-copy">
+                <strong>${escapeHtml(item.name)}</strong>
+                <span>${escapeHtml(item.details || '')}</span>
+              </div>
+              <span class="price">${escapeHtml(currentMenu.currency)} ${escapeHtml(item.price)}</span>
+              <button class="danger-link" type="button" data-delete-item="${item.id}">Delete</button>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderEditor(menu) {
+      const publicUrl = publicMenuUrl(menu);
+      editContent.innerHTML = `
+        <section class="editor-header">
+          <div>
+            <p class="eyebrow">Menu editor</p>
+            <h1>${escapeHtml(menu.title)}</h1>
+          </div>
+          <a class="button ghost" href="/frontend/dashboard.html">Back</a>
+        </section>
+
+        <section class="share-panel">
+          <div class="qr-box">
+            ${menu.qr_image_path ? `<img src="${menu.qr_image_path}" alt="QR code">` : '<div class="qr-placeholder">No QR</div>'}
+            <span>Guest QR</span>
+          </div>
+          <div class="share-link">
+            <span>Public link</span>
+            <a class="public-link" href="${publicUrl}" target="_blank" rel="noreferrer">${publicUrl}</a>
+          </div>
+        </section>
+
+        <section class="settings-band">
+          <form id="settings-form" class="settings-form">
+            <label>Title
+              <input name="title" value="${escapeHtml(menu.title)}" required>
+            </label>
+            <label>Currency
+              <input name="currency" value="${escapeHtml(menu.currency)}" required>
+            </label>
+            <label class="check-row">
+              <input type="checkbox" name="is_published" ${menu.is_published ? 'checked' : ''}>
+              Published
+            </label>
+            <button class="button" type="submit">Save</button>
+          </form>
+        </section>
+
+        <section class="add-category">
+          <form id="category-form" class="inline-form">
+            <input name="name" placeholder="New category name" required>
+            <input name="image" type="file" accept="image/*" aria-label="Category image">
+            <button class="button" type="submit">Add category</button>
+          </form>
+        </section>
+
+        <section class="category-list">
+          ${menu.categories.map((category) => `
+            <article class="category-panel">
+              <div class="category-title">
+                <h2>${escapeHtml(category.name)}</h2>
+                <button class="danger-link" type="button" data-delete-category="${category.id}">Delete category</button>
+              </div>
+              ${renderItems(category)}
+              <form class="item-form" data-category-id="${category.id}">
+                <input name="name" placeholder="Item name" required>
+                <input name="price" placeholder="Price" required>
+                <textarea name="details" placeholder="Details"></textarea>
+                <input name="image" type="file" accept="image/*" aria-label="Item image">
+                <button class="button" type="submit">Add item</button>
+              </form>
+            </article>
+          `).join('') || '<div class="empty-state">No categories yet. Add one above.</div>'}
+        </section>
+      `;
+      bindEditorEvents();
+    }
+
+    function bindEditorEvents() {
+      document.getElementById('settings-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearFormMessage(event.target);
+        setLoading(event.target, true, 'Saving...');
+        const formData = new FormData(event.target);
+        formData.set('is_published', event.target.is_published.checked ? 'true' : 'false');
+        try {
+          await apiFetch(`/api/menus/${menuId}`, { method: 'PUT', body: formData });
+          showToast('Menu settings saved.');
+          await loadEditMenu();
+        } catch (error) {
+          setFormMessage(event.target, error.message, 'error');
+        } finally {
+          setLoading(event.target, false);
+        }
+      });
+
+      document.getElementById('category-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        clearFormMessage(event.target);
+        setLoading(event.target, true, 'Adding...');
+        try {
+          await apiFetch(`/api/menus/${menuId}/categories`, { method: 'POST', body: new FormData(event.target) });
+          showToast('Category added.');
+          await loadEditMenu();
+        } catch (error) {
+          setFormMessage(event.target, error.message, 'error');
+        } finally {
+          setLoading(event.target, false);
+        }
+      });
+
+      document.querySelectorAll('.item-form').forEach((form) => {
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          clearFormMessage(form);
+          setLoading(form, true, 'Adding...');
+          try {
+            await apiFetch(`/api/categories/${form.dataset.categoryId}/items`, { method: 'POST', body: new FormData(form) });
+            showToast('Item added.');
+            await loadEditMenu();
+          } catch (error) {
+            setFormMessage(form, error.message, 'error');
+          } finally {
+            setLoading(form, false);
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-delete-category]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          try {
+            await apiFetch(`/api/categories/${button.dataset.deleteCategory}`, { method: 'DELETE' });
+            showToast('Category deleted.', 'info');
+            await loadEditMenu();
+          } catch (error) {
+            showToast(error.message, 'error');
+            button.disabled = false;
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-delete-item]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          button.disabled = true;
+          try {
+            await apiFetch(`/api/items/${button.dataset.deleteItem}`, { method: 'DELETE' });
+            showToast('Item deleted.', 'info');
+            await loadEditMenu();
+          } catch (error) {
+            showToast(error.message, 'error');
+            button.disabled = false;
+          }
+        });
+      });
+    }
+
+    async function loadEditMenu() {
+      if (!menuId) {
+        editContent.innerHTML = '<section class="empty-state">Missing menu id.</section>';
+        return;
+      }
+
+      try {
+        currentMenu = await apiFetch(`/api/menus/${menuId}`);
+        renderEditor(currentMenu);
+      } catch (error) {
+        editContent.innerHTML = `<section class="empty-state">${escapeHtml(error.message)}</section>`;
+      }
+    }
+
+    loadEditMenu();
+  </script>
+</body>
+</html>
