@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign up - Menu Maker</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Menu Maker</a>
+    <nav class="nav" id="nav-auth"></nav>
+  </header>
+
+  <main>
+    <section class="auth-panel">
+      <h1>Create restaurant account</h1>
+      <form id="signup-form" class="stack">
+        <label>Restaurant name
+          <input type="text" name="restaurant_name" autocomplete="organization" required>
+        </label>
+        <label>Email
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>Password
+          <input type="password" name="password" autocomplete="new-password" required minlength="6">
+        </label>
+        <button class="button" type="submit">Sign up</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    document.getElementById('signup-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearFormMessage(event.target);
+      setLoading(event.target, true, 'Creating account...');
+      try {
+        await apiFetch('/api/signup', { method: 'POST', body: new FormData(event.target) });
+        showToast('Account created.');
+        window.location.href = '/frontend/dashboard.html';
+      } catch (error) {
+        setFormMessage(event.target, error.message, 'error');
+      } finally {
+        setLoading(event.target, false);
+      }
+    });
+  </script>
+</body>
+</html>

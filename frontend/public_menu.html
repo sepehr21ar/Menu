@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="menu-title">Menu</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="public-body">
+  <main class="public-menu" id="menu-content">
+    <section class="empty-state">Loading menu...</section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    const menuContent = document.getElementById('menu-content');
+
+    function itemMarkup(menu, item) {
+      return `
+        <article class="public-item ${item.image_path ? '' : 'no-image'}">
+          ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : ''}
+          <div>
+            <div class="public-item-title">
+              <h3>${escapeHtml(item.name)}</h3>
+              <strong>${escapeHtml(menu.currency)} ${escapeHtml(item.price)}</strong>
+            </div>
+            ${item.details ? `<p>${escapeHtml(item.details)}</p>` : ''}
+          </div>
+        </article>
+      `;
+    }
+
+    function renderPublicMenu(menu) {
+      document.title = `${menu.title} - Menu`;
+      const availableCategories = menu.categories.map((category) => ({
+        ...category,
+        items: category.items.filter((item) => item.is_available),
+      }));
+
+      menuContent.innerHTML = `
+        <header class="public-header">
+          <p>Digital menu</p>
+          <h1>${escapeHtml(menu.title)}</h1>
+        </header>
+        ${availableCategories.length ? `
+          <nav class="category-tabs">
+            ${availableCategories.map((category, index) => `
+              <a class="category-tab ${index === 0 ? 'active' : ''}" href="#category-${category.id}">${escapeHtml(category.name)}</a>
+            `).join('')}
+          </nav>
+        ` : ''}
+        ${availableCategories.map((category) => `
+          <section class="public-category" id="category-${category.id}">
+            <h2>${escapeHtml(category.name)}</h2>
+            <div class="public-items">
+              ${category.items.length ? category.items.map((item) => itemMarkup(menu, item)).join('') : '<p class="muted">No available items yet.</p>'}
+            </div>
+          </section>
+        `).join('') || '<section class="empty-state">This menu has no categories yet.</section>'}
+      `;
+    }
+
+    async function loadMenu() {
+      const slug = location.pathname.split('/m/')[1];
+      if (!slug) {
+        menuContent.innerHTML = '<section class="empty-state">Menu not found.</section>';
+        return;
+      }
+
+      try {
+        renderPublicMenu(await apiFetch(`/api/m/${slug}`));
+      } catch (error) {
+        menuContent.innerHTML = `<section class="empty-state">${escapeHtml(error.message)}</section>`;
+      }
+    }
+
+    loadMenu();
+  </script>
+</body>
+</html>

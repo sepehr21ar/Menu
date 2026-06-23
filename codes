@@ -1,0 +1,1847 @@
+Hello speak in persain , see this codes and fix  problems :
+
+main :
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+from app.config import STATIC_DIR, BASE_DIR
+from app.database.init_db import init_db
+from app.routers.auth import router as auth_router
+from app.routers.dashboard import router as dashboard_router
+from app.routers.menu import router as menu_router
+from app.routers.public import router as public_router
+
+app = FastAPI(title="Menu Maker API", version="1.0.0")
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount Static Files
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Mount Frontend Folder
+frontend_dir = BASE_DIR / "frontend"
+if frontend_dir.exists():
+    app.mount("/frontend", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+
+# مقداردهی دیتابیس
+init_db()
+
+# API Routers
+app.include_router(auth_router, prefix="/api")
+app.include_router(dashboard_router, prefix="/api")
+app.include_router(menu_router, prefix="/api")
+app.include_router(public_router, prefix="/api")
+
+# Root Route → صفحه اصلی فرانت‌اند
+@app.get("/")
+async def root():
+    index_file = BASE_DIR / "frontend" / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    return {"message": "Menu Maker API is running. Frontend not found."}
+
+# Catch-all برای صفحات SPA-like (اختیاری)
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    # اگر مسیر با api شروع شود، API را برگردان
+    if full_path.startswith("api/"):
+        return {"detail": "Not Found"}
+    
+    frontend_file = BASE_DIR / "frontend" / full_path
+    if frontend_file.exists() and frontend_file.is_file():
+        return FileResponse(frontend_file)
+    
+    # اگر فایل پیدا نشد، index.html را برگردان (برای SPA)
+    index_file = BASE_DIR / "frontend" / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    
+    return FileResponse(BASE_DIR / "frontend" / "index.html")
+
+
+    security:
+    import base64
+import hashlib
+import hmac
+import secrets
+
+from app.config import SECRET_KEY
+
+SESSION_COOKIE = "menu_maker_session"
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 120_000)
+    return f"{base64.b64encode(salt).decode()}${base64.b64encode(digest).decode()}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        salt_b64, digest_b64 = stored_hash.split("$", 1)
+        salt = base64.b64decode(salt_b64)
+        expected = base64.b64decode(digest_b64)
+    except ValueError:
+        return False
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 120_000)
+    return hmac.compare_digest(digest, expected)
+
+
+def sign_session(owner_id: int) -> str:
+    payload = str(owner_id).encode()
+    signature = hmac.new(SECRET_KEY.encode(), payload, hashlib.sha256).digest()
+    return (
+        base64.urlsafe_b64encode(payload).decode()
+        + "."
+        + base64.urlsafe_b64encode(signature).decode()
+    )
+
+
+def read_session(value: str | None) -> int | None:
+    if not value or "." not in value:
+        return None
+    try:
+        payload_b64, signature_b64 = value.split(".", 1)
+        payload = base64.urlsafe_b64decode(payload_b64.encode())
+        signature = base64.urlsafe_b64decode(signature_b64.encode())
+        expected = hmac.new(SECRET_KEY.encode(), payload, hashlib.sha256).digest()
+        if not hmac.compare_digest(signature, expected):
+            return None
+        return int(payload.decode())
+    except Exception:
+        return None
+
+
+
+dependencies:
+from fastapi import Depends, HTTPException, status, Request
+from sqlalchemy.orm import Session
+
+from app.database.database import get_db
+from app.repository.owner_repository import get_owner_by_id
+from app.security import SESSION_COOKIE, read_session
+
+
+def current_owner(request: Request, db: Session = Depends(get_db)):
+    owner_id = read_session(request.cookies.get(SESSION_COOKIE))
+    if owner_id is None:
+        return None
+    return get_owner_by_id(db, owner_id)
+
+
+def require_owner(
+    request: Request,
+    db: Session = Depends(get_db),
+    owner = Depends(current_owner)
+):
+    if owner is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    return owner
+
+
+    utils :
+    import re
+
+
+def slugify(value: str) -> str:
+    value = re.sub(r"[^a-zA-Z0-9]+", "-", value.lower()).strip("-")
+    return value or "menu"
+
+
+    shemas :
+    from pydantic import BaseModel
+from typing import List, Optional
+
+
+class MenuItemBase(BaseModel):
+    name: str
+    details: Optional[str] = ""
+    price: str
+    image_path: Optional[str] = None
+    is_available: bool = True
+
+
+class MenuItemResponse(MenuItemBase):
+    id: int
+    category_id: int
+
+
+class CategoryBase(BaseModel):
+    name: str
+    image_path: Optional[str] = None
+
+
+class CategoryResponse(CategoryBase):
+    id: int
+    position: int
+    items: List[MenuItemResponse] = []
+
+
+class MenuBase(BaseModel):
+    title: str
+    currency: str = "$"
+
+
+class MenuResponse(MenuBase):
+    id: int
+    slug: str
+    logo_path: Optional[str] = None
+    qr_image_path: Optional[str] = None
+    is_published: bool
+    categories: List[CategoryResponse] = []
+
+
+class OwnerResponse(BaseModel):
+    id: int
+    restaurant_name: str
+    email: str
+
+
+class TokenResponse(BaseModel):
+    message: str
+
+
+
+
+    models :
+    from datetime import datetime
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from app.database.database import Base
+
+
+class Owner(Base):
+    __tablename__ = "owners"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    restaurant_name: Mapped[str] = mapped_column(String(160))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    menus: Mapped[list["Menu"]] = relationship("Menu", back_populates="owner", cascade="all, delete-orphan")
+
+
+class Menu(Base):
+    __tablename__ = "menus"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("owners.id"))
+    title: Mapped[str] = mapped_column(String(160))
+    slug: Mapped[str] = mapped_column(String(180), unique=True, index=True)
+    currency: Mapped[str] = mapped_column(String(16), default="$")
+    logo_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    qr_image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_published: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    owner: Mapped["Owner"] = relationship("Owner", back_populates="menus")
+    categories: Mapped[list["Category"]] = relationship(
+        "Category", back_populates="menu", cascade="all, delete-orphan", order_by="Category.position"
+    )
+
+
+class Category(Base):
+    __tablename__ = "categories"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    menu_id: Mapped[int] = mapped_column(ForeignKey("menus.id"))
+    name: Mapped[str] = mapped_column(String(120))
+    image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+    menu: Mapped["Menu"] = relationship("Menu", back_populates="categories")
+    items: Mapped[list["MenuItem"]] = relationship(
+        "MenuItem", back_populates="category", cascade="all, delete-orphan", order_by="MenuItem.id"
+    )
+
+
+class MenuItem(Base):
+    __tablename__ = "menu_items"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
+    name: Mapped[str] = mapped_column(String(140))
+    details: Mapped[str] = mapped_column(Text, default="")
+    price: Mapped[str] = mapped_column(String(40))
+    image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_available: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    category: Mapped["Category"] = relationship("Category", back_populates="items")
+
+
+    config:
+    from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / "static"
+UPLOAD_DIR = STATIC_DIR / "uploads"
+
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./menu_maker.db")
+SECRET_KEY = os.getenv("MENU_MAKER_SECRET", "dev-change-me-menu-maker-please-use-env-in-production")
+
+MAX_IMAGE_SIZE = 4 * 1024 * 1024
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+routers
+public:
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.database.database import get_db
+from app.schemas import MenuResponse
+from app.services.menu_service import build_public_menu_view
+
+router = APIRouter(tags=["Public"])
+
+
+@router.get("/m/{slug}", response_model=MenuResponse)
+def public_menu(slug: str, db: Session = Depends(get_db)):
+    menu = build_public_menu_view(db, slug)
+    return menu
+
+    menu:
+    from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.orm import Session
+
+from app.database.database import get_db
+from app.dependencies import require_owner
+from app.repository.category_repository import (
+    create_category, delete_category, get_category_by_id, 
+    get_categories_by_menu, update_category_image
+)
+from app.repository.item_repository import create_item, delete_item, get_item_by_id
+from app.repository.menu_repository import get_menu_by_id, update_menu_settings
+from app.schemas import MenuResponse, CategoryResponse, MenuItemResponse
+from app.services.image_service import save_image
+from app.services.qr_service import generate_qr_image
+
+router = APIRouter(tags=["Menu"])
+
+
+@router.get("/menus/{menu_id}", response_model=MenuResponse)
+def get_menu_for_edit(menu_id: int, owner = Depends(require_owner), db: Session = Depends(get_db)):
+    menu = get_menu_by_id(db, menu_id, load_categories=True)
+    if not menu or menu.owner_id != owner.id:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    return menu
+
+
+@router.post("/menus/{menu_id}/settings")
+async def update_menu_settings_api(
+    menu_id: int,
+    title: str = Form(...),
+    currency: str = Form(...),
+    is_published: bool = Form(False),
+    logo: UploadFile = File(None),
+    qr_image: UploadFile = File(None),
+    owner = Depends(require_owner),
+    db: Session = Depends(get_db),
+):
+    menu = get_menu_by_id(db, menu_id)
+    if not menu or menu.owner_id != owner.id:
+        raise HTTPException(status_code=404, detail="Menu not found")
+
+    logo_path = await save_image(logo)
+    qr_path = await save_image(qr_image)
+
+    if qr_path is None and not menu.qr_image_path:
+        public_url = f"http://yourdomain.com/m/{menu.slug}"
+        qr_path = generate_qr_image(public_url)
+
+    update_menu_settings(
+        db=db,
+        menu_id=menu_id,
+        title=title.strip(),
+        currency=currency.strip() or "$",
+        is_published=is_published,
+        logo_path=logo_path,
+        qr_image_path=qr_path,
+    )
+
+    return {"message": "تنظیمات منو با موفقیت ذخیره شد."}
+
+
+# بقیه endpointها (add category, add item, delete و ...) را هم به همین شکل API-only پیاده‌سازی کنید.
+
+
+dashboard:
+from fastapi import APIRouter, Depends, Form
+from sqlalchemy.orm import Session
+from uuid import uuid4
+
+from app.database.database import get_db
+from app.dependencies import require_owner
+from app.repository.menu_repository import create_menu, get_menus_by_owner
+from app.schemas import MenuResponse
+from app.services.qr_service import generate_qr_image
+from app.utils import slugify
+
+router = APIRouter(tags=["Dashboard"])
+
+
+@router.get("/menus", response_model=list[MenuResponse])
+def get_user_menus(owner = Depends(require_owner), db: Session = Depends(get_db)):
+    return get_menus_by_owner(db, owner.id)
+
+
+@router.post("/menus", response_model=MenuResponse)
+def create_new_menu(
+    title: str = Form(...),
+    currency: str = Form("$"),
+    owner = Depends(require_owner),
+    db: Session = Depends(get_db),
+):
+    clean_title = title.strip()
+    clean_currency = currency.strip() or "$"
+    base_slug = slugify(f"{owner.restaurant_name}-{clean_title}")
+    slug = f"{base_slug}-{uuid4().hex[:8]}"
+
+    menu = create_menu(
+        db=db,
+        owner_id=owner.id,
+        title=clean_title,
+        slug=slug,
+        currency=clean_currency,
+    )
+
+    # تولید QR Code
+    public_url = f"/m/{slug}"   # آدرس عمومی منو
+    qr_path = generate_qr_image(public_url)
+    menu.qr_image_path = qr_path
+    db.commit()
+
+    return menu
+
+
+    auth :
+    from fastapi import APIRouter, Depends, Form, HTTPException
+from sqlalchemy.orm import Session
+
+from app.database.database import get_db
+from app.dependencies import current_owner
+from app.schemas import OwnerResponse, TokenResponse
+from app.services.auth_service import authenticate_owner, register_owner
+from app.security import SESSION_COOKIE, sign_session
+
+router = APIRouter(tags=["Auth"])
+
+
+@router.post("/signup", response_model=TokenResponse)
+def signup(
+    restaurant_name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        owner = register_owner(db, restaurant_name, email, password)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ایمیل قبلاً ثبت شده است.")
+
+    response = {"message": "ثبت‌نام با موفقیت انجام شد."}
+    # در عمل، کوکی را در ResponseHeader تنظیم می‌کنید (فرانت‌اند باید مدیریت کند)
+    return response
+
+
+@router.post("/login", response_model=TokenResponse)
+def login(
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    owner = authenticate_owner(db, email, password)
+    if not owner:
+        raise HTTPException(status_code=401, detail="ایمیل یا رمز عبور اشتباه است.")
+
+    return {"message": "ورود با موفقیت انجام شد."}
+
+
+@router.get("/me", response_model=OwnerResponse)
+def get_current_user(owner = Depends(current_owner)):
+    if not owner:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return owner
+
+
+@router.post("/logout")
+def logout():
+    return {"message": "خروج انجام شد."}
+
+    repository :
+    item :
+    from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import MenuItem
+
+
+def get_item_by_id(db: Session, item_id: int):
+    return db.get(MenuItem, item_id)
+
+
+def get_items_by_category(db: Session, category_id: int):
+    stmt = select(MenuItem).where(MenuItem.category_id == category_id).order_by(MenuItem.id)
+    return db.execute(stmt).scalars().all()
+
+
+def create_item(
+    db: Session,
+    category_id: int,
+    name: str,
+    details: str = "",
+    price: str = "",
+    image_path: str | None = None,
+) -> MenuItem:
+    item = MenuItem(
+        category_id=category_id,
+        name=name,
+        details=details,
+        price=price,
+        image_path=image_path
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_item(db: Session, item_id: int):
+    item = db.get(MenuItem, item_id)
+    if item:
+        db.delete(item)
+        db.commit()
+
+
+def set_item_availability(db: Session, item_id: int, is_available: bool):
+    item = db.get(MenuItem, item_id)
+    if item:
+        item.is_available = is_available
+        db.commit()
+
+        categories:
+        from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import Category
+
+
+def get_category_by_id(db: Session, category_id: int):
+    return db.get(Category, category_id)
+
+
+def get_categories_by_menu(db: Session, menu_id: int):
+    stmt = select(Category).where(Category.menu_id == menu_id).order_by(Category.position, Category.id)
+    return db.execute(stmt).scalars().all()
+
+
+def create_category(db: Session, menu_id: int, name: str, image_path: str | None = None, position: int = 0) -> Category:
+    category = Category(
+        menu_id=menu_id,
+        name=name,
+        image_path=image_path,
+        position=position
+    )
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+def update_category_image(db: Session, category_id: int, image_path: str):
+    category = db.get(Category, category_id)
+    if category:
+        category.image_path = image_path
+        db.commit()
+        db.refresh(category)
+
+
+def delete_category(db: Session, category_id: int):
+    category = db.get(Category, category_id)
+    if category:
+        db.delete(category)
+        db.commit()
+
+menu:
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+
+from app.models import Menu
+
+
+def create_menu(db: Session, owner_id: int, title: str, slug: str, currency: str) -> Menu:
+    menu = Menu(
+        owner_id=owner_id,
+        title=title,
+        slug=slug,
+        currency=currency
+    )
+    db.add(menu)
+    db.commit()
+    db.refresh(menu)
+    return menu
+
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+from app.models import Menu, Category
+
+def get_menu_by_id(db: Session, menu_id: int, load_categories: bool = False):
+    query = select(Menu).where(Menu.id == menu_id)
+    if load_categories:
+        query = query.options(
+            selectinload(Menu.categories).selectinload(Category.items)
+        )
+    return db.execute(query).scalar_one_or_none()
+
+
+def get_menu_by_slug(db: Session, slug: str, load_categories: bool = False):
+    query = select(Menu).where(Menu.slug == slug)
+    if load_categories:
+        query = query.options(
+            selectinload(Menu.categories).selectinload(Category.items)
+        )
+    return db.execute(query).scalar_one_or_none()
+
+
+def get_menus_by_owner(db: Session, owner_id: int):
+    stmt = select(Menu).where(Menu.owner_id == owner_id).order_by(Menu.created_at.desc())
+    return db.execute(stmt).scalars().all()
+
+
+def update_menu_settings(
+    db: Session,
+    menu_id: int,
+    title: str | None = None,
+    currency: str | None = None,
+    is_published: bool | None = None,
+    logo_path: str | None = None,
+    qr_image_path: str | None = None,
+):
+    menu = db.get(Menu, menu_id)
+    if not menu:
+        return None
+
+    if title is not None:
+        menu.title = title
+    if currency is not None:
+        menu.currency = currency
+    if is_published is not None:
+        menu.is_published = is_published
+    if logo_path is not None:
+        menu.logo_path = logo_path
+    if qr_image_path is not None:
+        menu.qr_image_path = qr_image_path
+
+    db.commit()
+    db.refresh(menu)
+    return menu
+
+
+def delete_menu(db: Session, menu_id: int):
+    menu = db.get(Menu, menu_id)
+    if menu:
+        db.delete(menu)
+        db.commit()
+
+
+owner :
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import Owner
+
+
+def create_owner(db: Session, restaurant_name: str, email: str, password_hash: str) -> Owner:
+    owner = Owner(
+        restaurant_name=restaurant_name,
+        email=email,
+        password_hash=password_hash
+    )
+    db.add(owner)
+    db.commit()
+    db.refresh(owner)
+    return owner
+
+
+def get_owner_by_id(db: Session, owner_id: int):
+    return db.get(Owner, owner_id)
+
+
+def get_owner_by_email(db: Session, email: str):
+    stmt = select(Owner).where(Owner.email == email)
+    return db.execute(stmt).scalar_one_or_none()
+
+
+
+    services:
+    menu:
+    from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
+from app.repository.category_repository import get_categories_by_menu
+from app.repository.item_repository import get_items_by_category
+from app.repository.menu_repository import get_menu_by_id, get_menu_by_slug
+
+
+def build_public_menu_view(db: Session, slug: str):
+    menu = get_menu_by_slug(db, slug, load_categories=True)
+    if menu is None or not menu.is_published:
+        raise HTTPException(status_code=404, detail="Menu not found")
+
+    return menu
+
+    qr:
+    from uuid import uuid4
+import qrcode
+
+from app.config import UPLOAD_DIR
+
+
+def generate_qr_image(data: str) -> str:
+    img = qrcode.make(data)
+    filename = f"{uuid4().hex}.png"
+    path = UPLOAD_DIR / filename
+    img.save(path)
+    return f"/static/uploads/{filename}"
+
+
+    image :
+    from pathlib import Path
+from uuid import uuid4
+
+from fastapi import HTTPException, UploadFile
+
+from app.config import ALLOWED_IMAGE_EXTENSIONS, MAX_IMAGE_SIZE, UPLOAD_DIR
+
+
+async def save_image(image: UploadFile | None) -> str | None:
+    if not image or not image.filename:
+        return None
+
+    if image.content_type and not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="فایل آپلود شده باید تصویر باشد.")
+
+    suffix = Path(image.filename).suffix.lower()
+    if suffix not in ALLOWED_IMAGE_EXTENSIONS:
+        suffix = ".jpg"
+
+    contents = await image.read()
+    if len(contents) > MAX_IMAGE_SIZE:
+        raise HTTPException(status_code=400, detail="حجم تصویر نباید بیشتر از ۴ مگابایت باشد.")
+
+    filename = f"{uuid4().hex}{suffix}"
+    path = UPLOAD_DIR / filename
+    path.write_bytes(contents)
+
+    return f"/static/uploads/{filename}"
+
+auth :
+from sqlalchemy.orm import Session
+
+from app.repository.owner_repository import create_owner, get_owner_by_email
+from app.security import hash_password, verify_password
+
+
+def register_owner(db: Session, restaurant_name: str, email: str, password: str):
+    clean_email = email.lower().strip()
+    exists = get_owner_by_email(db, clean_email)
+    if exists:
+        raise ValueError("email_exists")
+
+    return create_owner(
+        db=db,
+        restaurant_name=restaurant_name.strip(),
+        email=clean_email,
+        password_hash=hash_password(password),
+    )
+
+
+def authenticate_owner(db: Session, email: str, password: str):
+    owner = get_owner_by_email(db, email.lower().strip())
+    if not owner:
+        return None
+    if not verify_password(password, owner.password_hash):
+        return None
+    return owner
+
+database :
+init :
+from app.database.database import engine, Base
+from app import models  # برای ثبت مدل‌ها
+
+
+def init_db():
+    print("Creating database tables...")
+    Base.metadata.create_all(bind=engine)
+    print("Database created successfully.")
+
+database:
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from app.config import DATABASE_URL
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+
+
+
+        front :
+        index:
+    <!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menu Maker - منوی دیجیتال رستوران</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Menu Maker</a>
+    <nav class="nav" id="nav-auth"></nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">منوی دیجیتال رستوران</p>
+        <h1>منوهایی که با QR Code باز می‌شوند</h1>
+        <p class="lead">دسته‌بندی، عکس، قیمت و انتشار فوری</p>
+        <div class="actions">
+          <a class="button" href="/frontend/signup.html">ایجاد حساب رستوران</a>
+          <a class="button ghost" href="/frontend/login.html">ورود مالک</a>
+        </div>
+      </div>
+      <div class="hero-preview">
+        <div class="phone">
+          <div class="phone-header">رستوران زعفران</div>
+          <div class="menu-section accent">
+            <span>پیش غذا</span>
+            <strong>نان سبزیجات</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
+
+
+
+base :
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Menu Maker{% endblock %}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Menu Maker</a>
+    <nav class="nav">
+      {% if owner %}
+        <a href="/dashboard">Dashboard</a>
+        <form method="post" action="/logout">
+          <button class="link-button" type="submit">Logout</button>
+        </form>
+      {% else %}
+        <a href="/login">Login</a>
+        <a class="button small" href="/signup">Sign up</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  {% if flash %}
+    <div class="flash">{{ flash }}</div>
+  {% endif %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
+
+
+login :
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ورود - Menu Maker</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">...</header>
+  <main>
+    <section class="auth-panel">
+      <h1>ورود به پنل مدیریت</h1>
+      <form id="login-form" class="stack">
+        <label>ایمیل<input type="email" id="email" required></label>
+        <label>رمز عبور<input type="password" id="password" required></label>
+        <button class="button" type="submit">ورود</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const res = await fetch('/api/login', { method: 'POST', body: formData, credentials: 'include' });
+      if (res.ok) window.location.href = '/frontend/dashboard.html';
+      else alert('اطلاعات اشتباه است');
+    });
+  </script>
+</body>
+</html>
+
+
+
+dashboard:
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>داشبورد - Menu Maker</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">...</header>
+  <main>
+    <section class="page-header">
+      <h1>منوهای من</h1>
+      <form id="new-menu-form" class="inline-form">
+        <input name="title" placeholder="نام منو" required>
+        <button class="button" type="submit">منوی جدید</button>
+      </form>
+    </section>
+    <section class="menu-grid" id="menus-container"></section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    // لود منوها با fetch
+  </script>
+</body>
+</html>
+
+
+
+public_menu:
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="menu-title"></title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="public-body">
+  <main class="public-menu" id="menu-content"></main>
+
+  <script>
+    async function loadMenu() {
+      const slug = location.pathname.split('/m/')[1];
+      const res = await fetch(`/api/m/${slug}`);
+      const menu = await res.json();
+      // رندر کامل منو (دسته‌ها و آیتم‌ها)
+    }
+    loadMenu();
+  </script>
+</body>
+</html>
+
+
+signup:
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ثبت‌نام - Menu Maker</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Menu Maker</a>
+  </header>
+
+  <main>
+    <section class="auth-panel">
+      <h1>ایجاد فضای رستوران</h1>
+      <form id="signup-form" class="stack">
+        <label>نام رستوران
+          <input type="text" id="restaurant_name" required>
+        </label>
+        <label>ایمیل
+          <input type="email" id="email" required>
+        </label>
+        <label>رمز عبور
+          <input type="password" id="password" required minlength="6">
+        </label>
+        <button class="button" type="submit">ثبت‌نام</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('restaurant_name', document.getElementById('restaurant_name').value);
+      formData.append('email', document.getElementById('email').value);
+      formData.append('password', document.getElementById('password').value);
+
+      const res = await fetch('/api/signup', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+
+      if (res.ok) {
+        alert('ثبت‌نام با موفقیت انجام شد');
+        window.location.href = '/frontend/dashboard.html';
+      } else {
+        alert('خطا در ثبت‌نام');
+      }
+    });
+  </script>
+</body>
+</html>
+
+edit menu:
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ویرایش منو - Menu Maker</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Menu Maker</a>
+    <nav class="nav" id="nav-auth"></nav>
+  </header>
+
+  <main id="edit-content">
+    <!-- با JavaScript پر می‌شود -->
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    const menuId = new URLSearchParams(window.location.search).get('id');
+
+    async function loadEditMenu() {
+      if (!menuId) return;
+      const res = await fetch(`/api/menus/${menuId}`, { credentials: 'include' });
+      const menu = await res.json();
+      // اینجا رندر کامل فرم تنظیمات، دسته‌ها و آیتم‌ها را پیاده‌سازی کنید
+      document.getElementById('edit-content').innerHTML = `
+        <h1>ویرایش ${menu.title}</h1>
+        <p>در حال توسعه... (این بخش را بعداً کامل می‌کنیم)</p>
+      `;
+    }
+
+    loadEditMenu();
+  </script>
+</body>
+</html>
+
+
+static:
+app.js:
+const API_BASE = '/api';
+
+// مدیریت نمایش ناوبار
+async function updateAuthUI() {
+  const nav = document.getElementById('nav-auth');
+  const owner = await fetchCurrentOwner();
+  
+  if (owner) {
+    nav.innerHTML = `
+      <a href="/dashboard.html">داشبورد</a>
+      <button onclick="logout()" class="link-button">خروج</button>
+    `;
+  } else {
+    nav.innerHTML = `
+      <a href="/login.html">ورود</a>
+      <a class="button small" href="/signup.html">ثبت‌نام</a>
+    `;
+  }
+}
+
+async function fetchCurrentOwner() {
+  try {
+    const res = await fetch(`${API_BASE}/me`, { credentials: 'include' });
+    if (res.ok) return await res.json();
+  } catch (e) {}
+  return null;
+}
+
+async function logout() {
+  await fetch(`${API_BASE}/logout`, { method: 'POST', credentials: 'include' });
+  window.location.href = '/';
+}
+
+// اجرای اولیه
+document.addEventListener('DOMContentLoaded', updateAuthUI);
+
+
+
+styles:
+:root {
+  color-scheme: light;
+  --ink: #15201c;
+  --muted: #60716a;
+  --paper: #fbfaf6;
+  --paper-deep: #f4efe4;
+  --line: #dfe5dc;
+  --leaf: #246b54;
+  --leaf-dark: #164937;
+  --mint: #e8f2eb;
+  --tomato: #c94a3a;
+  --gold: #d7a642;
+  --sun: #fff4d6;
+  --white: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(244, 239, 228, 0.7)),
+    var(--paper);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+main {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 68px;
+  padding: 0 max(16px, calc((100vw - 1120px) / 2));
+  background: rgba(251, 250, 246, 0.94);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(12px);
+}
+
+.brand {
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.nav,
+.actions,
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nav a,
+.public-link {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.link-button,
+.danger-link {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+}
+
+.danger-link {
+  color: var(--tomato);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--leaf);
+  border-radius: 7px;
+  background: var(--leaf);
+  color: var(--white);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.button:hover {
+  background: var(--leaf-dark);
+  border-color: var(--leaf-dark);
+  transform: translateY(-1px);
+}
+
+.button.small {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.button.ghost {
+  background: transparent;
+  color: var(--leaf);
+}
+
+.button.ghost:hover {
+  background: var(--mint);
+  border-color: #b8d3c1;
+  color: var(--leaf-dark);
+}
+
+.flash {
+  width: min(1120px, calc(100% - 32px));
+  margin: 18px auto 0;
+  padding: 12px 14px;
+  border: 1px solid #cfe1d3;
+  border-radius: 7px;
+  background: #eef8ef;
+  color: var(--leaf-dark);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 48px;
+  align-items: center;
+  min-height: calc(100vh - 68px);
+  padding: 48px 0;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--tomato);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  margin: 0;
+  font-size: 72px;
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.lead {
+  max-width: 660px;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1.55;
+}
+
+.hero-preview {
+  min-height: 520px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(36, 107, 84, 0.92), rgba(21, 32, 28, 0.82)),
+    url("https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80");
+  background-size: cover;
+  background-position: center;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+}
+
+.phone {
+  width: min(310px, 100%);
+  border-radius: 28px;
+  background: var(--paper);
+  padding: 18px;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.28);
+}
+
+.phone-header {
+  padding: 22px 10px;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.menu-section {
+  margin: 12px 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.menu-section span {
+  display: block;
+  color: var(--tomato);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.menu-section strong,
+.menu-section small {
+  display: block;
+  margin-top: 6px;
+}
+
+.menu-section small {
+  color: var(--muted);
+}
+
+.menu-section.accent {
+  border-color: #f0d89c;
+  background: #fff8e7;
+}
+
+.auth-panel {
+  width: min(460px, 100%);
+  margin: 64px auto;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.auth-panel h1 {
+  margin-bottom: 24px;
+  font-size: 34px;
+  line-height: 1.05;
+}
+
+.stack,
+.settings-form,
+.item-form,
+.inline-form {
+  display: grid;
+  gap: 14px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+input,
+textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  padding: 10px 12px;
+}
+
+textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.page-header,
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  padding: 42px 0 24px;
+}
+
+.page-header h1,
+.editor-header h1 {
+  font-size: 48px;
+}
+
+.inline-form {
+  grid-template-columns: minmax(180px, 1fr) 96px auto;
+  align-items: end;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  padding-bottom: 48px;
+}
+
+.menu-card,
+.empty-state,
+.category-panel,
+.settings-band {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: 0 14px 38px rgba(21, 32, 28, 0.06);
+}
+
+.menu-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.menu-card h2,
+.category-panel h2,
+.public-category h2 {
+  margin: 0;
+}
+
+.menu-card p,
+.muted {
+  color: var(--muted);
+}
+
+.qr-thumb {
+  width: 128px;
+  height: 128px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  padding: 28px;
+  color: var(--muted);
+}
+
+.share-panel {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 320px);
+  gap: 18px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: 0 14px 38px rgba(21, 32, 28, 0.06);
+}
+
+.qr-box,
+.share-link {
+  display: grid;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.qr-box {
+  justify-items: center;
+}
+
+.qr-box img {
+  width: 150px;
+  height: 150px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.share-link span,
+.qr-box span {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.share-link .public-link {
+  display: block;
+  padding: 10px 12px;
+  border: 1px dashed #b8c8bd;
+  border-radius: 7px;
+  background: var(--mint);
+  color: var(--leaf-dark);
+  line-height: 1.35;
+}
+
+.settings-band {
+  padding: 18px;
+}
+
+.settings-form {
+  grid-template-columns: minmax(180px, 1fr) 120px 120px auto;
+  align-items: end;
+}
+
+.check-row {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+}
+
+.check-row input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.add-category {
+  padding: 24px 0;
+}
+
+.category-list {
+  display: grid;
+  gap: 20px;
+  padding-bottom: 56px;
+}
+
+.category-panel {
+  padding: 18px;
+}
+
+.category-title,
+.item-row,
+.public-item-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.items {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.item-row {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.item-row img,
+.image-placeholder {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  border-radius: 7px;
+  object-fit: cover;
+  background: #e7ece8;
+}
+
+.item-copy {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+}
+
+.item-copy span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.price {
+  color: var(--leaf-dark);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.item-form {
+  grid-template-columns: 1fr 120px 1.4fr 180px auto;
+  align-items: start;
+}
+
+.public-body {
+  background:
+    radial-gradient(circle at top left, rgba(255, 244, 214, 0.95), transparent 320px),
+    linear-gradient(180deg, #fffaf0, #f1eadc);
+}
+
+.public-menu {
+  width: min(820px, calc(100% - 28px));
+  padding: 28px 0 60px;
+}
+
+.public-header {
+  position: relative;
+  padding: 38px 0 26px;
+  border-bottom: 2px solid rgba(21, 32, 28, 0.88);
+}
+
+.public-header p {
+  margin: 0 0 8px;
+  color: var(--tomato);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.public-header h1 {
+  font-size: 78px;
+}
+
+.category-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: flex;
+  gap: 10px;
+  margin: 0 -6px;
+  padding: 14px 6px;
+  overflow-x: auto;
+  background: rgba(255, 250, 240, 0.92);
+  border-bottom: 1px solid rgba(222, 212, 195, 0.9);
+  backdrop-filter: blur(12px);
+}
+
+.category-tab {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #d5c9b8;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--muted);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.category-tab.active {
+  border-color: var(--leaf-dark);
+  background: var(--leaf-dark);
+  color: var(--white);
+}
+
+.public-category {
+  scroll-margin-top: 76px;
+  padding: 30px 0 4px;
+}
+
+.public-category h2 {
+  margin-bottom: 14px;
+  color: var(--leaf-dark);
+  font-size: 28px;
+}
+
+.public-items {
+  display: grid;
+  gap: 14px;
+}
+
+.public-item {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #ded4c3;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 12px 28px rgba(57, 44, 24, 0.06);
+}
+
+.public-item.no-image {
+  grid-template-columns: 1fr;
+  padding: 18px;
+}
+
+.public-item img {
+  width: 132px;
+  height: 100px;
+  border-radius: 7px;
+  object-fit: cover;
+}
+
+.public-item h3,
+.public-item p {
+  margin: 0;
+}
+
+.public-item p {
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.public-item-title strong {
+  flex: 0 0 auto;
+  color: var(--leaf-dark);
+  font-size: 18px;
+}
+
+@media (max-width: 820px) {
+  main {
+    width: min(100% - 24px, 620px);
+  }
+
+  .hero,
+  .page-header,
+  .editor-header {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .hero {
+    min-height: auto;
+  }
+
+  .hero-preview {
+    min-height: 420px;
+  }
+
+  h1,
+  .public-header h1 {
+    font-size: 42px;
+  }
+
+  .inline-form,
+  .settings-form,
+  .item-form,
+  .share-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .share-panel {
+    justify-items: stretch;
+  }
+
+  .qr-box {
+    justify-items: start;
+  }
+
+  .item-row {
+    align-items: start;
+    flex-wrap: wrap;
+  }
+
+  .public-item {
+    grid-template-columns: 1fr;
+  }
+
+  .public-item img {
+    width: 100%;
+    height: 210px;
+  }
+
+  .public-item-title {
+    align-items: flex-start;
+  }
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(36, 107, 84, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(215, 166, 66, 0.14), transparent 24%),
+    linear-gradient(180deg, #fcfbf7 0%, #f4efe4 100%);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(36, 107, 84, 0.08), transparent 20%),
+    radial-gradient(circle at 80% 15%, rgba(201, 74, 58, 0.07), transparent 18%),
+    radial-gradient(circle at 50% 90%, rgba(215, 166, 66, 0.06), transparent 22%);
+  z-index: -1;
+}
+.qr-placeholder,
+.category-cover-placeholder {
+  width: 128px;
+  height: 128px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  text-align: center;
+  padding: 10px;
+}
+
+.public-qr-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0 0 22px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 30px rgba(21, 32, 28, 0.08);
+}
+
+.public-qr-banner img {
+  width: 120px;
+  height: 120px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  background: #fff;
+}

@@ -21,9 +21,11 @@
       {% endif %}
     </nav>
   </header>
+
   {% if flash %}
     <div class="flash">{{ flash }}</div>
   {% endif %}
+
   <main>
     {% block content %}{% endblock %}
   </main>
