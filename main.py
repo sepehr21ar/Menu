@@ -10,6 +10,7 @@ from app.config import BASE_DIR, STATIC_DIR
 from app.database.init_db import init_db
 from app.routers.auth import router as auth_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.images import router as images_router
 from app.routers.menu import router as menu_router
 from app.routers.public import router as public_router
 
@@ -42,6 +43,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
 app.include_router(menu_router, prefix="/api")
 app.include_router(public_router, prefix="/api")
+app.include_router(images_router, prefix="/api")
 
 
 def frontend_file(name: str) -> Path:
