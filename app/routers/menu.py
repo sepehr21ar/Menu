@@ -60,9 +60,9 @@ async def update_menu_settings_api(
     menu = ensure_owner_menu(db, menu_id, owner)
 
     try:
-        logo_path = await save_image(logo)
-        background_image_path = await save_image(background_image)
-        qr_path = await save_image(qr_image)
+        logo_path = await save_image(db, logo)
+        background_image_path = await save_image(db, background_image)
+        qr_path = await save_image(db, qr_image)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -107,7 +107,7 @@ async def add_category_api(
     ensure_owner_menu(db, menu_id, owner)
 
     try:
-        image_path = await save_image(image)
+        image_path = await save_image(db, image)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -149,7 +149,7 @@ async def add_item_api(
         raise HTTPException(status_code=404, detail="Category not found")
 
     try:
-        image_path = await save_image(image)
+        image_path = await save_image(db, image)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

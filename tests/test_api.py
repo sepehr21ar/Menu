@@ -85,21 +85,32 @@ def test_optional_images_and_background_upload(client):
     signup(client)
     menu = create_menu(client)
 
+    background_bytes = b"fake-background-image"
+    category_bytes = b"fake-category-image"
+
     update_response = client.put(
         f"/api/menus/{menu['id']}",
         data={"title": menu["title"], "currency": "$", "is_published": "true"},
-        files={"background_image": ("background.png", b"fake-image", "image/png")},
+        files={"background_image": ("background.png", background_bytes, "image/png")},
     )
     assert update_response.status_code == 200
-    assert update_response.json()["background_image_path"].endswith(".png")
+    background_path = update_response.json()["background_image_path"]
+    assert background_path.startswith("/api/images/")
+    background_response = client.get(background_path)
+    assert background_response.status_code == 200
+    assert background_response.content == background_bytes
 
     category_response = client.post(
         f"/api/menus/{menu['id']}/categories",
         data={"name": "Desserts"},
-        files={"image": ("category.png", b"fake-image", "image/png")},
+        files={"image": ("category.png", category_bytes, "image/png")},
     )
     assert category_response.status_code == 201
-    assert category_response.json()["image_path"].endswith(".png")
+    category_path = category_response.json()["image_path"]
+    assert category_path.startswith("/api/images/")
+    category_image_response = client.get(category_path)
+    assert category_image_response.status_code == 200
+    assert category_image_response.content == category_bytes
 
     item_response = client.post(
         f"/api/categories/{category_response.json()['id']}/items",
