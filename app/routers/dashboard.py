@@ -7,7 +7,6 @@ from app.database.database import get_db
 from app.dependencies import require_owner
 from app.repository.menu_repository import create_menu, get_menus_by_owner
 from app.schemas import MenuResponse
-from app.services.qr_service import generate_qr_image
 from app.services.validation_service import validate_currency, validate_title
 from app.utils import slugify
 
@@ -40,8 +39,7 @@ def create_new_menu(
         currency=clean_currency,
     )
 
-    public_url = str(request.url_for("public_page", slug=slug))
-    menu.qr_image_path = generate_qr_image(public_url)
+    menu.qr_image_path = f"/api/menus/{menu.id}/qr"
     db.commit()
     db.refresh(menu)
     return menu

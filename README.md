@@ -31,3 +31,11 @@ python -m uvicorn main:app --reload
 ```
 
 For FastAPI Cloud or another hosted environment, set `DATABASE_URL` to your cloud database connection string. The backend initializes tables during FastAPI startup, so database setup stays server-side and does not depend on frontend code.
+
+Set `PUBLIC_BASE_URL` in cloud when you know the public domain:
+
+```env
+PUBLIC_BASE_URL=https://your-app-domain.example
+```
+
+QR codes are generated dynamically by the backend from that domain, so they do not depend on saved QR image files.

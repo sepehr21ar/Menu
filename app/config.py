@@ -16,6 +16,8 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./menu_maker.db")
 
 SECRET_KEY = os.getenv("MENU_MAKER_SECRET", "change-this-secret-key")
 
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+
 MAX_IMAGE_SIZE = 4 * 1024 * 1024
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}

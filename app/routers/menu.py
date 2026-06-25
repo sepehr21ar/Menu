@@ -1,4 +1,13 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
@@ -14,7 +23,7 @@ from app.repository.item_repository import create_item, delete_item, get_item_by
 from app.repository.menu_repository import get_menu_by_id, update_menu_settings
 from app.schemas import CategoryResponse, MenuItemResponse, MenuResponse
 from app.services.image_service import save_image
-from app.services.qr_service import generate_qr_image
+from app.services.qr_service import generate_qr_png, public_menu_url
 
 router = APIRouter(tags=["Menu"])
 
@@ -56,8 +65,7 @@ async def update_menu_settings_api(
         raise HTTPException(status_code=400, detail=str(exc))
 
     if qr_path is None and not menu.qr_image_path:
-        public_url = str(request.url_for("public_page", slug=menu.slug))
-        qr_path = generate_qr_image(public_url)
+        qr_path = f"/api/menus/{menu.id}/qr"
 
     updated_menu = update_menu_settings(
         db=db,
@@ -69,6 +77,18 @@ async def update_menu_settings_api(
         qr_image_path=qr_path,
     )
     return get_menu_by_id(db, updated_menu.id, load_categories=True)
+
+
+@router.get("/menus/{menu_id}/qr")
+def get_menu_qr_image(
+    request: Request,
+    menu_id: int,
+    owner=Depends(require_owner),
+    db: Session = Depends(get_db),
+):
+    menu = ensure_owner_menu(db, menu_id, owner)
+    url = public_menu_url(request, menu.slug)
+    return Response(content=generate_qr_png(url), media_type="image/png")
 
 
 @router.post(

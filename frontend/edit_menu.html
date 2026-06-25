@@ -57,7 +57,7 @@
 
         <section class="share-panel">
           <div class="qr-box">
-            ${menu.qr_image_path ? `<img src="${menu.qr_image_path}" alt="QR code">` : '<div class="qr-placeholder">No QR</div>'}
+            <img src="/api/menus/${menu.id}/qr" alt="QR code">
             <span>Guest QR</span>
           </div>
           <div class="share-link">
