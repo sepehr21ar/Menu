@@ -40,7 +40,7 @@
             <h2>${escapeHtml(menu.title)}</h2>
             <p>${menu.is_published ? 'Published' : 'Hidden'} · ${escapeHtml(menu.currency)}</p>
           </div>
-          ${menu.qr_image_path ? `<img class="qr-thumb" src="${menu.qr_image_path}" alt="QR code for ${escapeHtml(menu.title)}">` : '<div class="qr-placeholder">No QR yet</div>'}
+          <img class="qr-thumb" src="/api/menus/${menu.id}/qr" alt="QR code for ${escapeHtml(menu.title)}">
           <div class="card-actions">
             <a class="button small" href="/frontend/edit_menu.html?id=${menu.id}">Edit</a>
             <a class="button small ghost" href="/m/${menu.slug}" target="_blank" rel="noreferrer">View</a>

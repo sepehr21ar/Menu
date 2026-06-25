@@ -15,14 +15,26 @@
   <script>
     const menuContent = document.getElementById('menu-content');
 
+    function formatPrice(value) {
+      const raw = String(value || '').trim();
+      const numeric = raw.replace(/[^\d.]/g, '');
+      if (!numeric) return raw;
+
+      const [whole, decimal] = numeric.split('.');
+      const grouped = Number(whole).toLocaleString('en-US');
+      return decimal ? `${grouped}.${decimal}` : grouped;
+    }
+
     function itemMarkup(menu, item) {
       return `
-        <article class="public-item ${item.image_path ? '' : 'no-image'}">
-          ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : ''}
+        <article class="public-item">
+          <div class="public-item-image-frame">
+            ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : '<div class="image-placeholder public-placeholder">No image</div>'}
+          </div>
           <div>
             <div class="public-item-title">
               <h3>${escapeHtml(item.name)}</h3>
-              <strong>${escapeHtml(menu.currency)} ${escapeHtml(item.price)}</strong>
+              <strong>${escapeHtml(menu.currency)} ${escapeHtml(formatPrice(item.price))}</strong>
             </div>
             ${item.details ? `<p>${escapeHtml(item.details)}</p>` : ''}
           </div>
@@ -32,6 +44,9 @@
 
     function renderPublicMenu(menu) {
       document.title = `${menu.title} - Menu`;
+      document.body.style.backgroundImage = menu.background_image_path
+        ? `linear-gradient(180deg, rgba(20, 28, 24, 0.32), rgba(20, 28, 24, 0.38)), url("${menu.background_image_path}")`
+        : '';
       const availableCategories = menu.categories.map((category) => ({
         ...category,
         items: category.items.filter((item) => item.is_available),
@@ -39,7 +54,8 @@
 
       menuContent.innerHTML = `
         <header class="public-header">
-          <p>Digital menu</p>
+          <a class="other-menus-link" href="/r/${menu.owner_id}">Other menus</a>
+          <p class="restaurant-name">${escapeHtml(menu.restaurant_name)}</p>
           <h1>${escapeHtml(menu.title)}</h1>
         </header>
         ${availableCategories.length ? `
@@ -51,13 +67,54 @@
         ` : ''}
         ${availableCategories.map((category) => `
           <section class="public-category" id="category-${category.id}">
-            <h2>${escapeHtml(category.name)}</h2>
+            <div class="public-category-heading">
+              <div class="public-category-image">
+                ${category.image_path ? `<img src="${category.image_path}" alt="${escapeHtml(category.name)}">` : '<div class="category-cover-placeholder">No image</div>'}
+              </div>
+              <h2>${escapeHtml(category.name)}</h2>
+            </div>
             <div class="public-items">
               ${category.items.length ? category.items.map((item) => itemMarkup(menu, item)).join('') : '<p class="muted">No available items yet.</p>'}
             </div>
           </section>
         `).join('') || '<section class="empty-state">This menu has no categories yet.</section>'}
+        <footer class="public-footer">
+          <a class="github-link" href="https://github.com/sepehr21ar/Menu" target="_blank" rel="noreferrer">GitHub · sepehr21ar/Menu</a>
+          <a class="make-menu-link" href="/">Make your own menu</a>
+        </footer>
       `;
+      bindCategoryTabs();
+    }
+
+    function setActiveCategory(categoryId) {
+      document.querySelectorAll('.category-tab').forEach((tab) => {
+        tab.classList.toggle('active', tab.getAttribute('href') === `#${categoryId}`);
+      });
+    }
+
+    function bindCategoryTabs() {
+      const tabs = Array.from(document.querySelectorAll('.category-tab'));
+      const sections = Array.from(document.querySelectorAll('.public-category'));
+      if (!tabs.length || !sections.length) return;
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const categoryId = tab.getAttribute('href').slice(1);
+          setActiveCategory(categoryId);
+        });
+      });
+
+      const observer = new IntersectionObserver((entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) setActiveCategory(visible.target.id);
+      }, {
+        rootMargin: '-20% 0px -65% 0px',
+        threshold: [0.15, 0.4, 0.7],
+      });
+
+      sections.forEach((section) => observer.observe(section));
     }
 
     async function loadMenu() {

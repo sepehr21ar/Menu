@@ -49,6 +49,15 @@ def get_menus_by_owner(db: Session, owner_id: int):
     return list(db.scalars(stmt))
 
 
+def get_published_menus_by_owner(db: Session, owner_id: int):
+    stmt = (
+        select(Menu)
+        .where(Menu.owner_id == owner_id, Menu.is_published.is_(True))
+        .order_by(Menu.created_at.desc())
+    )
+    return list(db.scalars(stmt))
+
+
 def update_menu_settings(
     db: Session,
     menu_id: int,
@@ -56,6 +65,7 @@ def update_menu_settings(
     currency: str,
     is_published: bool,
     logo_path: str | None,
+    background_image_path: str | None,
     qr_image_path: str | None,
 ):
 
@@ -70,6 +80,9 @@ def update_menu_settings(
 
     if logo_path:
         menu.logo_path = logo_path
+
+    if background_image_path:
+        menu.background_image_path = background_image_path
 
     if qr_image_path:
         menu.qr_image_path = qr_image_path

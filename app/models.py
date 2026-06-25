@@ -27,6 +27,9 @@ class Menu(Base):
     slug: Mapped[str] = mapped_column(String(180), unique=True, index=True)
     currency: Mapped[str] = mapped_column(String(16), default="$")
     logo_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    background_image_path: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
     qr_image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_published: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -41,6 +44,10 @@ class Menu(Base):
         lazy="selectin",
         order_by="Category.position",
     )
+
+    @property
+    def restaurant_name(self) -> str:
+        return self.owner.restaurant_name
 
 
 class Category(Base):

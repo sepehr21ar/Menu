@@ -11,5 +11,6 @@ itsdangerous
 bcrypt
 psycopg[binary]
 httpx
+pytest
 black
 isort

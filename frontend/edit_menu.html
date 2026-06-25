@@ -24,14 +24,16 @@
 
     function renderItems(category) {
       if (!category.items.length) {
-        return '<p class="muted">No items in this category yet.</p>';
+        return '<p class="muted">No items in this category yet. Items without photos will use a clean placeholder.</p>';
       }
 
       return `
         <div class="items">
           ${category.items.map((item) => `
             <div class="item-row">
-              ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : '<div class="image-placeholder"></div>'}
+              <div class="item-image-frame">
+                ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : '<div class="image-placeholder">No image</div>'}
+              </div>
               <div class="item-copy">
                 <strong>${escapeHtml(item.name)}</strong>
                 <span>${escapeHtml(item.details || '')}</span>
@@ -57,7 +59,7 @@
 
         <section class="share-panel">
           <div class="qr-box">
-            ${menu.qr_image_path ? `<img src="${menu.qr_image_path}" alt="QR code">` : '<div class="qr-placeholder">No QR</div>'}
+            <img src="/api/menus/${menu.id}/qr" alt="QR code">
             <span>Guest QR</span>
           </div>
           <div class="share-link">
@@ -73,6 +75,9 @@
             </label>
             <label>Currency
               <input name="currency" value="${escapeHtml(menu.currency)}" required>
+            </label>
+            <label>Background image
+              <input name="background_image" type="file" accept="image/*">
             </label>
             <label class="check-row">
               <input type="checkbox" name="is_published" ${menu.is_published ? 'checked' : ''}>
@@ -94,7 +99,12 @@
           ${menu.categories.map((category) => `
             <article class="category-panel">
               <div class="category-title">
-                <h2>${escapeHtml(category.name)}</h2>
+                <div class="category-heading">
+                  <div class="category-cover">
+                    ${category.image_path ? `<img src="${category.image_path}" alt="${escapeHtml(category.name)}">` : '<div class="category-cover-placeholder">No image</div>'}
+                  </div>
+                  <h2>${escapeHtml(category.name)}</h2>
+                </div>
                 <button class="danger-link" type="button" data-delete-category="${category.id}">Delete category</button>
               </div>
               ${renderItems(category)}

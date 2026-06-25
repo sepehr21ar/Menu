@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.env
 menu_maker.db
 uvicorn.*.log
 static/uploads/*

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant menus</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="public-body">
+  <main class="public-menu restaurant-menu-list" id="restaurant-content">
+    <section class="empty-state">Loading menus...</section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    const restaurantContent = document.getElementById('restaurant-content');
+
+    function renderRestaurantMenus(menus) {
+      const restaurantName = menus[0]?.restaurant_name || 'Restaurant';
+      document.title = `${restaurantName} - Menus`;
+
+      restaurantContent.innerHTML = `
+        <header class="public-header">
+          <a class="other-menus-link" href="/">Home</a>
+          <p>Restaurant menus</p>
+          <h1>${escapeHtml(restaurantName)}</h1>
+        </header>
+        <section class="restaurant-menus-grid">
+          ${menus.length ? menus.map((menu) => `
+            <a class="restaurant-menu-card" href="/m/${menu.slug}">
+              <span>${escapeHtml(menu.title)}</span>
+              <small>Open menu</small>
+            </a>
+          `).join('') : '<div class="empty-state">No published menus yet.</div>'}
+        </section>
+        <footer class="public-footer">
+          <a class="github-link" href="https://github.com/sepehr21ar/Menu" target="_blank" rel="noreferrer">GitHub · sepehr21ar/Menu</a>
+          <a class="make-menu-link" href="/">Make your own menu</a>
+        </footer>
+      `;
+    }
+
+    async function loadRestaurantMenus() {
+      const ownerId = location.pathname.split('/r/')[1];
+      if (!ownerId) {
+        restaurantContent.innerHTML = '<section class="empty-state">Restaurant not found.</section>';
+        return;
+      }
+
+      try {
+        renderRestaurantMenus(await apiFetch(`/api/restaurants/${ownerId}/menus`));
+      } catch (error) {
+        restaurantContent.innerHTML = `<section class="empty-state">${escapeHtml(error.message)}</section>`;
+      }
+    }
+
+    loadRestaurantMenus();
+  </script>
+</body>
+</html>
