@@ -17,6 +17,9 @@ async def save_image(
     if file is None:
         return None
 
+    if not file.filename:
+        return None
+
     suffix = Path(file.filename).suffix.lower()
 
     if suffix not in ALLOWED_IMAGE_EXTENSIONS:

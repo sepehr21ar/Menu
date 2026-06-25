@@ -42,8 +42,11 @@ class MenuBase(BaseModel):
 class MenuResponse(MenuBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    owner_id: int
+    restaurant_name: str
     slug: str
     logo_path: Optional[str] = None
+    background_image_path: Optional[str] = None
     qr_image_path: Optional[str] = None
     is_published: bool
     categories: List[CategoryResponse] = Field(default_factory=list)
@@ -58,3 +61,13 @@ class OwnerResponse(BaseModel):
 
 class TokenResponse(BaseModel):
     message: str
+
+
+class PublicMenuSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    owner_id: int
+    restaurant_name: str
+    title: str
+    slug: str
+    background_image_path: Optional[str] = None

@@ -52,6 +52,7 @@ async def update_menu_settings_api(
     currency: str = Form(...),
     is_published: bool = Form(False),
     logo: UploadFile = File(None),
+    background_image: UploadFile = File(None),
     qr_image: UploadFile = File(None),
     owner=Depends(require_owner),
     db: Session = Depends(get_db),
@@ -60,6 +61,7 @@ async def update_menu_settings_api(
 
     try:
         logo_path = await save_image(logo)
+        background_image_path = await save_image(background_image)
         qr_path = await save_image(qr_image)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -74,6 +76,7 @@ async def update_menu_settings_api(
         currency=currency.strip() or "$",
         is_published=is_published,
         logo_path=logo_path,
+        background_image_path=background_image_path,
         qr_image_path=qr_path,
     )
     return get_menu_by_id(db, updated_menu.id, load_categories=True)
