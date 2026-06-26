@@ -31,7 +31,7 @@ router = APIRouter(tags=["Menu"])
 def ensure_owner_menu(db: Session, menu_id: int, owner):
     menu = get_menu_by_id(db, menu_id, load_categories=True)
     if menu is None or menu.owner_id != owner.id:
-        raise HTTPException(status_code=404, detail="Menu not found")
+        raise HTTPException(status_code=404, detail="منو پیدا نشد.")
     return menu
 
 
@@ -128,7 +128,7 @@ def delete_category_api(
 ):
     category = get_category_by_id(db, category_id)
     if category is None or category.menu.owner_id != owner.id:
-        raise HTTPException(status_code=404, detail="Category not found")
+        raise HTTPException(status_code=404, detail="دسته‌بندی پیدا نشد.")
     delete_category(db, category)
 
 
@@ -146,7 +146,7 @@ async def add_item_api(
 ):
     category = get_category_by_id(db, category_id)
     if category is None or category.menu.owner_id != owner.id:
-        raise HTTPException(status_code=404, detail="Category not found")
+        raise HTTPException(status_code=404, detail="دسته‌بندی پیدا نشد.")
 
     try:
         image_path = await save_image(db, image)
@@ -171,5 +171,5 @@ def delete_item_api(
 ):
     item = get_item_by_id(db, item_id)
     if item is None or item.category.menu.owner_id != owner.id:
-        raise HTTPException(status_code=404, detail="Item not found")
+        raise HTTPException(status_code=404, detail="آیتم پیدا نشد.")
     delete_item(db, item)

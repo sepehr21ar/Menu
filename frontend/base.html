@@ -1,33 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Menu Maker{% endblock %}</title>
+  <title>منوساز</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/">Menu Maker</a>
+    <a class="brand" href="/">منوساز</a>
     <nav class="nav">
-      {% if owner %}
-        <a href="/dashboard">Dashboard</a>
-        <form method="post" action="/logout">
-          <button class="link-button" type="submit">Logout</button>
-        </form>
-      {% else %}
-        <a href="/login">Login</a>
-        <a class="button small" href="/signup">Sign up</a>
-      {% endif %}
+      <a href="/frontend/dashboard.html">داشبورد</a>
+      <a href="/frontend/login.html">ورود</a>
+      <a class="button small" href="/frontend/signup.html">ثبت‌نام</a>
     </nav>
   </header>
-
-  {% if flash %}
-    <div class="flash">{{ flash }}</div>
-  {% endif %}
-
-  <main>
-    {% block content %}{% endblock %}
-  </main>
 </body>
 </html>

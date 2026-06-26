@@ -19,14 +19,14 @@ async def save_image(
 
     suffix = Path(file.filename).suffix.lower()
     if suffix not in ALLOWED_IMAGE_EXTENSIONS:
-        raise ValueError("Unsupported image format.")
+        raise ValueError("فرمت عکس پشتیبانی نمی‌شود.")
 
     data = await file.read()
     if not data:
         return None
 
     if len(data) > MAX_IMAGE_SIZE:
-        raise ValueError("Image is too large.")
+        raise ValueError("حجم عکس بیش از حد مجاز است.")
 
     image = create_uploaded_image(
         db=db,

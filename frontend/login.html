@@ -1,28 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Menu Maker</title>
+  <title>ورود - منوساز</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/">Menu Maker</a>
+    <a class="brand" href="/">منوساز</a>
     <nav class="nav" id="nav-auth"></nav>
   </header>
 
   <main>
     <section class="auth-panel">
-      <h1>Owner login</h1>
+      <h1>ورود مالک</h1>
       <form id="login-form" class="stack">
-        <label>Email
+        <label>ایمیل
           <input type="email" name="email" autocomplete="email" required>
         </label>
-        <label>Password
+        <label>رمز عبور
           <input type="password" name="password" autocomplete="current-password" required>
         </label>
-        <button class="button" type="submit">Login</button>
+        <button class="button" type="submit">ورود</button>
       </form>
     </section>
   </main>
@@ -32,10 +32,10 @@
     document.getElementById('login-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       clearFormMessage(event.target);
-      setLoading(event.target, true, 'Logging in...');
+      setLoading(event.target, true, 'در حال ورود...');
       try {
         await apiFetch('/api/login', { method: 'POST', body: new FormData(event.target) });
-        showToast('Welcome back.');
+        showToast('خوش آمدید.');
         window.location.href = '/frontend/dashboard.html';
       } catch (error) {
         setFormMessage(event.target, error.message, 'error');

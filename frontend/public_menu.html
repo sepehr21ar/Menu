@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title id="menu-title">Menu</title>
+  <title id="menu-title">منو</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body class="public-body">
   <main class="public-menu" id="menu-content">
-    <section class="empty-state">Loading menu...</section>
+    <section class="empty-state">در حال بارگذاری منو...</section>
   </main>
 
   <script src="/static/app.js"></script>
@@ -29,7 +29,7 @@
       return `
         <article class="public-item">
           <div class="public-item-image-frame">
-            ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : '<div class="image-placeholder public-placeholder">No image</div>'}
+            ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : '<div class="image-placeholder public-placeholder">بدون عکس</div>'}
           </div>
           <div>
             <div class="public-item-title">
@@ -43,7 +43,7 @@
     }
 
     function renderPublicMenu(menu) {
-      document.title = `${menu.title} - Menu`;
+      document.title = `${menu.title} - منو`;
       document.body.style.backgroundImage = menu.background_image_path
         ? `linear-gradient(180deg, rgba(20, 28, 24, 0.32), rgba(20, 28, 24, 0.38)), url("${menu.background_image_path}")`
         : '';
@@ -54,7 +54,7 @@
 
       menuContent.innerHTML = `
         <header class="public-header">
-          <a class="other-menus-link" href="/r/${menu.owner_id}">Other menus</a>
+          <a class="other-menus-link" href="/r/${menu.owner_id}">منوهای دیگر</a>
           <p class="restaurant-name">${escapeHtml(menu.restaurant_name)}</p>
           <h1>${escapeHtml(menu.title)}</h1>
         </header>
@@ -69,18 +69,18 @@
           <section class="public-category" id="category-${category.id}">
             <div class="public-category-heading">
               <div class="public-category-image">
-                ${category.image_path ? `<img src="${category.image_path}" alt="${escapeHtml(category.name)}">` : '<div class="category-cover-placeholder">No image</div>'}
+                ${category.image_path ? `<img src="${category.image_path}" alt="${escapeHtml(category.name)}">` : '<div class="category-cover-placeholder">بدون عکس</div>'}
               </div>
               <h2>${escapeHtml(category.name)}</h2>
             </div>
             <div class="public-items">
-              ${category.items.length ? category.items.map((item) => itemMarkup(menu, item)).join('') : '<p class="muted">No available items yet.</p>'}
+              ${category.items.length ? category.items.map((item) => itemMarkup(menu, item)).join('') : '<p class="muted">هنوز آیتمی برای نمایش وجود ندارد.</p>'}
             </div>
           </section>
-        `).join('') || '<section class="empty-state">This menu has no categories yet.</section>'}
+        `).join('') || '<section class="empty-state">این منو هنوز دسته‌بندی ندارد.</section>'}
         <footer class="public-footer">
-          <a class="github-link" href="https://github.com/sepehr21ar/Menu" target="_blank" rel="noreferrer">GitHub · sepehr21ar/Menu</a>
-          <a class="make-menu-link" href="/">Make your own menu</a>
+          <a class="github-link" href="https://github.com/sepehr21ar/Menu" target="_blank" rel="noreferrer">گیت‌هاب · sepehr21ar/Menu</a>
+          <a class="make-menu-link" href="/">منوی خودت را بساز</a>
         </footer>
       `;
       bindCategoryTabs();
@@ -120,7 +120,7 @@
     async function loadMenu() {
       const slug = location.pathname.split('/m/')[1];
       if (!slug) {
-        menuContent.innerHTML = '<section class="empty-state">Menu not found.</section>';
+        menuContent.innerHTML = '<section class="empty-state">منو پیدا نشد.</section>';
         return;
       }
 

@@ -11,7 +11,7 @@ router = APIRouter(tags=["Images"])
 def serve_uploaded_image(image_id: int, db: Session = Depends(get_db)):
     image = get_uploaded_image(db, image_id)
     if image is None:
-        raise HTTPException(status_code=404, detail="Image not found")
+        raise HTTPException(status_code=404, detail="عکس پیدا نشد.")
 
     return Response(
         content=image.data,

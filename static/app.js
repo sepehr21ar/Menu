@@ -10,6 +10,27 @@ function escapeHtml(value = '') {
   }[char]));
 }
 
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    credentials: 'include',
+    ...options,
+  });
+
+  if (!res.ok) {
+    let message = 'درخواست ناموفق بود';
+    try {
+      const data = await res.json();
+      message = data.detail || message;
+    } catch (error) {
+      message = res.statusText || message;
+    }
+    throw new Error(message);
+  }
+
+  if (res.status === 204) return null;
+  return res.json();
+}
+
 function ensureToastContainer() {
   let container = document.querySelector('.toast-container');
   if (!container) {
@@ -44,7 +65,7 @@ function clearFormMessage(form) {
   if (status) status.remove();
 }
 
-function setLoading(form, isLoading, label = 'Working...') {
+function setLoading(form, isLoading, label = 'در حال انجام...') {
   const button = form.querySelector('button[type="submit"]');
   if (!button) return;
 
@@ -59,27 +80,6 @@ function setLoading(form, isLoading, label = 'Working...') {
   button.textContent = button.dataset.originalText || button.textContent;
   button.disabled = false;
   form.classList.remove('is-loading');
-}
-
-async function apiFetch(url, options = {}) {
-  const res = await fetch(url, {
-    credentials: 'include',
-    ...options,
-  });
-
-  if (!res.ok) {
-    let message = 'Request failed';
-    try {
-      const data = await res.json();
-      message = data.detail || message;
-    } catch (error) {
-      message = res.statusText || message;
-    }
-    throw new Error(message);
-  }
-
-  if (res.status === 204) return null;
-  return res.json();
 }
 
 async function fetchCurrentOwner() {
@@ -98,15 +98,15 @@ async function updateAuthUI() {
   if (owner) {
     nav.innerHTML = `
       <span class="nav-owner">${escapeHtml(owner.restaurant_name)}</span>
-      <a href="/frontend/dashboard.html">Dashboard</a>
-      <button onclick="logout()" class="link-button">Logout</button>
+      <a href="/frontend/dashboard.html">داشبورد</a>
+      <button onclick="logout()" class="link-button">خروج</button>
     `;
     return;
   }
 
   nav.innerHTML = `
-    <a href="/frontend/login.html">Login</a>
-    <a class="button small" href="/frontend/signup.html">Sign up</a>
+    <a href="/frontend/login.html">ورود</a>
+    <a class="button small" href="/frontend/signup.html">ثبت‌نام</a>
   `;
 }
 

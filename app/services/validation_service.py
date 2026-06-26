@@ -9,7 +9,7 @@ def validate_title(
 
     if len(title) < 2:
 
-        raise HTTPException(400, "Title is too short.")
+        raise HTTPException(400, "عنوان خیلی کوتاه است.")
 
     return title
 
