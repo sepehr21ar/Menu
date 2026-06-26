@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Restaurant menus</title>
+  <title>منوهای رستوران</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body class="public-body">
   <main class="public-menu restaurant-menu-list" id="restaurant-content">
-    <section class="empty-state">Loading menus...</section>
+    <section class="empty-state">در حال بارگذاری منوها...</section>
   </main>
 
   <script src="/static/app.js"></script>
@@ -16,26 +16,26 @@
     const restaurantContent = document.getElementById('restaurant-content');
 
     function renderRestaurantMenus(menus) {
-      const restaurantName = menus[0]?.restaurant_name || 'Restaurant';
-      document.title = `${restaurantName} - Menus`;
+      const restaurantName = menus[0]?.restaurant_name || 'رستوران';
+      document.title = `${restaurantName} - منوها`;
 
       restaurantContent.innerHTML = `
         <header class="public-header">
-          <a class="other-menus-link" href="/">Home</a>
-          <p>Restaurant menus</p>
+          <a class="other-menus-link" href="/">خانه</a>
+          <p>منوهای رستوران</p>
           <h1>${escapeHtml(restaurantName)}</h1>
         </header>
         <section class="restaurant-menus-grid">
           ${menus.length ? menus.map((menu) => `
             <a class="restaurant-menu-card" href="/m/${menu.slug}">
               <span>${escapeHtml(menu.title)}</span>
-              <small>Open menu</small>
+              <small>باز کردن منو</small>
             </a>
-          `).join('') : '<div class="empty-state">No published menus yet.</div>'}
+          `).join('') : '<div class="empty-state">هنوز منوی منتشر شده‌ای وجود ندارد.</div>'}
         </section>
         <footer class="public-footer">
-          <a class="github-link" href="https://github.com/sepehr21ar/Menu" target="_blank" rel="noreferrer">GitHub · sepehr21ar/Menu</a>
-          <a class="make-menu-link" href="/">Make your own menu</a>
+          <a class="github-link" href="https://github.com/sepehr21ar/Menu" target="_blank" rel="noreferrer">گیت‌هاب · sepehr21ar/Menu</a>
+          <a class="make-menu-link" href="/">منوی خودت را بساز</a>
         </footer>
       `;
     }
@@ -43,7 +43,7 @@
     async function loadRestaurantMenus() {
       const ownerId = location.pathname.split('/r/')[1];
       if (!ownerId) {
-        restaurantContent.innerHTML = '<section class="empty-state">Restaurant not found.</section>';
+        restaurantContent.innerHTML = '<section class="empty-state">رستوران پیدا نشد.</section>';
         return;
       }
 

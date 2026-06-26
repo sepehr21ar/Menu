@@ -1,19 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Edit menu - Menu Maker</title>
+  <title>ویرایش منو - منوساز</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/">Menu Maker</a>
+    <a class="brand" href="/">منوساز</a>
     <nav class="nav" id="nav-auth"></nav>
   </header>
 
   <main id="edit-content">
-    <section class="empty-state">Loading menu...</section>
+    <section class="empty-state">در حال بارگذاری منو...</section>
   </main>
 
   <script src="/static/app.js"></script>
@@ -24,7 +24,7 @@
 
     function renderItems(category) {
       if (!category.items.length) {
-        return '<p class="muted">No items in this category yet. Items without photos will use a clean placeholder.</p>';
+        return '<p class="muted">هنوز آیتمی در این دسته‌بندی نیست. اگر عکسی نگذارید، جای خالی تمیز نمایش داده می‌شود.</p>';
       }
 
       return `
@@ -32,14 +32,14 @@
           ${category.items.map((item) => `
             <div class="item-row">
               <div class="item-image-frame">
-                ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : '<div class="image-placeholder">No image</div>'}
+                ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : '<div class="image-placeholder">بدون عکس</div>'}
               </div>
               <div class="item-copy">
                 <strong>${escapeHtml(item.name)}</strong>
                 <span>${escapeHtml(item.details || '')}</span>
               </div>
               <span class="price">${escapeHtml(currentMenu.currency)} ${escapeHtml(item.price)}</span>
-              <button class="danger-link" type="button" data-delete-item="${item.id}">Delete</button>
+              <button class="danger-link" type="button" data-delete-item="${item.id}">حذف</button>
             </div>
           `).join('')}
         </div>
@@ -51,47 +51,47 @@
       editContent.innerHTML = `
         <section class="editor-header">
           <div>
-            <p class="eyebrow">Menu editor</p>
+            <p class="eyebrow">ویرایش منو</p>
             <h1>${escapeHtml(menu.title)}</h1>
           </div>
-          <a class="button ghost" href="/frontend/dashboard.html">Back</a>
+          <a class="button ghost" href="/frontend/dashboard.html">بازگشت</a>
         </section>
 
         <section class="share-panel">
           <div class="qr-box">
-            <img src="/api/menus/${menu.id}/qr" alt="QR code">
-            <span>Guest QR</span>
+            <img src="/api/menus/${menu.id}/qr" alt="کد QR">
+            <span>کد QR مهمان</span>
           </div>
           <div class="share-link">
-            <span>Public link</span>
+            <span>لینک عمومی</span>
             <a class="public-link" href="${publicUrl}" target="_blank" rel="noreferrer">${publicUrl}</a>
           </div>
         </section>
 
         <section class="settings-band">
           <form id="settings-form" class="settings-form">
-            <label>Title
+            <label>عنوان
               <input name="title" value="${escapeHtml(menu.title)}" required>
             </label>
-            <label>Currency
+            <label>واحد پول
               <input name="currency" value="${escapeHtml(menu.currency)}" required>
             </label>
-            <label>Background image
+            <label>عکس پس‌زمینه
               <input name="background_image" type="file" accept="image/*">
             </label>
             <label class="check-row">
               <input type="checkbox" name="is_published" ${menu.is_published ? 'checked' : ''}>
-              Published
+              منتشر شود
             </label>
-            <button class="button" type="submit">Save</button>
+            <button class="button" type="submit">ذخیره</button>
           </form>
         </section>
 
         <section class="add-category">
           <form id="category-form" class="inline-form">
-            <input name="name" placeholder="New category name" required>
-            <input name="image" type="file" accept="image/*" aria-label="Category image">
-            <button class="button" type="submit">Add category</button>
+            <input name="name" placeholder="نام دسته‌بندی جدید" required>
+            <input name="image" type="file" accept="image/*" aria-label="عکس دسته‌بندی">
+            <button class="button" type="submit">افزودن دسته‌بندی</button>
           </form>
         </section>
 
@@ -101,22 +101,22 @@
               <div class="category-title">
                 <div class="category-heading">
                   <div class="category-cover">
-                    ${category.image_path ? `<img src="${category.image_path}" alt="${escapeHtml(category.name)}">` : '<div class="category-cover-placeholder">No image</div>'}
+                    ${category.image_path ? `<img src="${category.image_path}" alt="${escapeHtml(category.name)}">` : '<div class="category-cover-placeholder">بدون عکس</div>'}
                   </div>
                   <h2>${escapeHtml(category.name)}</h2>
                 </div>
-                <button class="danger-link" type="button" data-delete-category="${category.id}">Delete category</button>
+                <button class="danger-link" type="button" data-delete-category="${category.id}">حذف دسته‌بندی</button>
               </div>
               ${renderItems(category)}
               <form class="item-form" data-category-id="${category.id}">
-                <input name="name" placeholder="Item name" required>
-                <input name="price" placeholder="Price" required>
-                <textarea name="details" placeholder="Details"></textarea>
-                <input name="image" type="file" accept="image/*" aria-label="Item image">
-                <button class="button" type="submit">Add item</button>
+                <input name="name" placeholder="نام آیتم" required>
+                <input name="price" placeholder="قیمت" required>
+                <textarea name="details" placeholder="توضیحات"></textarea>
+                <input name="image" type="file" accept="image/*" aria-label="عکس آیتم">
+                <button class="button" type="submit">افزودن آیتم</button>
               </form>
             </article>
-          `).join('') || '<div class="empty-state">No categories yet. Add one above.</div>'}
+          `).join('') || '<div class="empty-state">هنوز دسته‌بندی ندارید. یکی اضافه کنید.</div>'}
         </section>
       `;
       bindEditorEvents();
@@ -126,12 +126,12 @@
       document.getElementById('settings-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         clearFormMessage(event.target);
-        setLoading(event.target, true, 'Saving...');
+        setLoading(event.target, true, 'در حال ذخیره...');
         const formData = new FormData(event.target);
         formData.set('is_published', event.target.is_published.checked ? 'true' : 'false');
         try {
           await apiFetch(`/api/menus/${menuId}`, { method: 'PUT', body: formData });
-          showToast('Menu settings saved.');
+          showToast('تنظیمات منو ذخیره شد.');
           await loadEditMenu();
         } catch (error) {
           setFormMessage(event.target, error.message, 'error');
@@ -143,10 +143,10 @@
       document.getElementById('category-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         clearFormMessage(event.target);
-        setLoading(event.target, true, 'Adding...');
+        setLoading(event.target, true, 'در حال افزودن...');
         try {
           await apiFetch(`/api/menus/${menuId}/categories`, { method: 'POST', body: new FormData(event.target) });
-          showToast('Category added.');
+          showToast('دسته‌بندی اضافه شد.');
           await loadEditMenu();
         } catch (error) {
           setFormMessage(event.target, error.message, 'error');
@@ -159,10 +159,10 @@
         form.addEventListener('submit', async (event) => {
           event.preventDefault();
           clearFormMessage(form);
-          setLoading(form, true, 'Adding...');
+          setLoading(form, true, 'در حال افزودن...');
           try {
             await apiFetch(`/api/categories/${form.dataset.categoryId}/items`, { method: 'POST', body: new FormData(form) });
-            showToast('Item added.');
+            showToast('آیتم اضافه شد.');
             await loadEditMenu();
           } catch (error) {
             setFormMessage(form, error.message, 'error');
@@ -177,7 +177,7 @@
           button.disabled = true;
           try {
             await apiFetch(`/api/categories/${button.dataset.deleteCategory}`, { method: 'DELETE' });
-            showToast('Category deleted.', 'info');
+            showToast('دسته‌بندی حذف شد.', 'info');
             await loadEditMenu();
           } catch (error) {
             showToast(error.message, 'error');
@@ -191,7 +191,7 @@
           button.disabled = true;
           try {
             await apiFetch(`/api/items/${button.dataset.deleteItem}`, { method: 'DELETE' });
-            showToast('Item deleted.', 'info');
+            showToast('آیتم حذف شد.', 'info');
             await loadEditMenu();
           } catch (error) {
             showToast(error.message, 'error');
@@ -203,7 +203,7 @@
 
     async function loadEditMenu() {
       if (!menuId) {
-        editContent.innerHTML = '<section class="empty-state">Missing menu id.</section>';
+        editContent.innerHTML = '<section class="empty-state">شناسه منو پیدا نشد.</section>';
         return;
       }
 

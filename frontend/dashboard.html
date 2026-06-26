@@ -1,24 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - Menu Maker</title>
+  <title>داشبورد - منوساز</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/">Menu Maker</a>
+    <a class="brand" href="/">منوساز</a>
     <nav class="nav" id="nav-auth"></nav>
   </header>
 
   <main>
     <section class="page-header">
-      <h1>My menus</h1>
+      <h1>منوهای من</h1>
       <form id="new-menu-form" class="inline-form">
-        <input name="title" placeholder="Menu name" required>
-        <input name="currency" placeholder="$" value="$" aria-label="Currency">
-        <button class="button" type="submit">Create menu</button>
+        <input name="title" placeholder="نام منو" required>
+        <input name="currency" placeholder="تومان" value="تومان" aria-label="واحد پول">
+        <button class="button" type="submit">ساخت منو</button>
       </form>
     </section>
     <section class="menu-grid" id="menus-container"></section>
@@ -30,7 +30,7 @@
 
     function renderMenus(menus) {
       if (!menus.length) {
-        menusContainer.innerHTML = '<div class="empty-state">No menus yet. Create your first menu above.</div>';
+        menusContainer.innerHTML = '<div class="empty-state">هنوز منویی ندارید. اولین منو را بسازید.</div>';
         return;
       }
 
@@ -38,12 +38,12 @@
         <article class="menu-card">
           <div>
             <h2>${escapeHtml(menu.title)}</h2>
-            <p>${menu.is_published ? 'Published' : 'Hidden'} · ${escapeHtml(menu.currency)}</p>
+            <p>${menu.is_published ? 'منتشر شده' : 'مخفی'} · ${escapeHtml(menu.currency)}</p>
           </div>
-          <img class="qr-thumb" src="/api/menus/${menu.id}/qr" alt="QR code for ${escapeHtml(menu.title)}">
+          <img class="qr-thumb" src="/api/menus/${menu.id}/qr" alt="کد QR برای ${escapeHtml(menu.title)}">
           <div class="card-actions">
-            <a class="button small" href="/frontend/edit_menu.html?id=${menu.id}">Edit</a>
-            <a class="button small ghost" href="/m/${menu.slug}" target="_blank" rel="noreferrer">View</a>
+            <a class="button small" href="/frontend/edit_menu.html?id=${menu.id}">ویرایش</a>
+            <a class="button small ghost" href="/m/${menu.slug}" target="_blank" rel="noreferrer">مشاهده</a>
           </div>
         </article>
       `).join('');
@@ -51,10 +51,10 @@
 
     async function loadMenus() {
       try {
-        menusContainer.innerHTML = '<div class="empty-state">Loading menus...</div>';
+        menusContainer.innerHTML = '<div class="empty-state">در حال بارگذاری منوها...</div>';
         renderMenus(await apiFetch('/api/menus'));
       } catch (error) {
-        if (error.message === 'Not authenticated') {
+        if (error.message === 'وارد حساب نشده‌اید.' || error.message === 'Not authenticated') {
           window.location.href = '/frontend/login.html';
           return;
         }
@@ -65,12 +65,12 @@
     document.getElementById('new-menu-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       clearFormMessage(event.target);
-      setLoading(event.target, true, 'Creating...');
+      setLoading(event.target, true, 'در حال ساخت...');
       try {
         await apiFetch('/api/menus', { method: 'POST', body: new FormData(event.target) });
         event.target.reset();
-        event.target.currency.value = '$';
-        showToast('Menu created.');
+        event.target.currency.value = 'تومان';
+        showToast('منو ساخته شد.');
         await loadMenus();
       } catch (error) {
         setFormMessage(event.target, error.message, 'error');

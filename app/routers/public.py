@@ -13,7 +13,7 @@ router = APIRouter(tags=["Public"])
 def public_menu(slug: str, db: Session = Depends(get_db)):
     menu = build_public_menu_view(db, slug)
     if menu is None:
-        raise HTTPException(status_code=404, detail="Menu not found")
+        raise HTTPException(status_code=404, detail="منو پیدا نشد.")
     return menu
 
 

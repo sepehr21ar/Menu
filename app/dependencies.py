@@ -26,6 +26,6 @@ def require_owner(owner=Depends(current_owner)):
 
     if owner is None:
 
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(status_code=401, detail="وارد حساب نشده‌اید.")
 
     return owner
