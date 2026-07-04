@@ -62,6 +62,32 @@ def test_owner_can_create_menu_category_and_item(client):
     assert edit_menu["categories"][0]["items"][0]["name"] == "Burger"
 
 
+def test_owner_can_delete_item(client):
+    signup(client)
+    menu = create_menu(client)
+
+    category_response = client.post(
+        f"/api/menus/{menu['id']}/categories",
+        data={"name": "Mains"},
+    )
+    assert category_response.status_code == 201
+    category = category_response.json()
+
+    item_response = client.post(
+        f"/api/categories/{category['id']}/items",
+        data={"name": "Burger", "details": "House sauce", "price": "12"},
+    )
+    assert item_response.status_code == 201
+    item = item_response.json()
+
+    delete_response = client.delete(f"/api/items/{item['id']}")
+    assert delete_response.status_code == 204
+
+    edit_response = client.get(f"/api/menus/{menu['id']}")
+    assert edit_response.status_code == 200
+    assert edit_response.json()["categories"][0]["items"] == []
+
+
 def test_public_menu_and_dynamic_qr(client):
     signup(client, restaurant_name="QR Cafe")
     menu = create_menu(client, title="Dinner")

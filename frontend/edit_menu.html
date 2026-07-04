@@ -39,7 +39,7 @@
                 <span>${escapeHtml(item.details || '')}</span>
               </div>
               <span class="price">${escapeHtml(currentMenu.currency)} ${escapeHtml(item.price)}</span>
-              <button class="danger-link" type="button" data-delete-item="${item.id}">حذف</button>
+              <button class="danger-link item-delete-button" type="button" data-delete-item="${item.id}">حذف</button>
             </div>
           `).join('')}
         </div>
