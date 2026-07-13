@@ -66,6 +66,14 @@ async def public_page(slug: str):
     raise HTTPException(status_code=404, detail="Public menu page not found")
 
 
+@app.get("/m/{slug}/order", name="public_order_page")
+async def public_order_page(slug: str):
+    public_file = frontend_file("public_menu.html")
+    if public_file.exists():
+        return FileResponse(public_file)
+    raise HTTPException(status_code=404, detail="Public menu page not found")
+
+
 @app.get("/r/{owner_id}", name="restaurant_page")
 async def restaurant_page(owner_id: int):
     restaurant_file = frontend_file("restaurant_menus.html")

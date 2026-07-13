@@ -795,10 +795,189 @@ textarea {
   line-height: 1.45;
 }
 
+.public-item-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 4px;
+  border: 1px solid #d5c9b8;
+  border-radius: 999px;
+  background: #fffaf0;
+}
+
+.quantity-button {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--leaf);
+  border-radius: 50%;
+  background: var(--leaf);
+  color: var(--white);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.quantity-button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.quantity-count {
+  min-width: 26px;
+  color: var(--leaf-dark);
+  font-weight: 900;
+  text-align: center;
+}
+
+.floating-order-button {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--leaf-dark);
+  border-radius: 999px;
+  background: var(--leaf-dark);
+  color: var(--white);
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 14px 34px rgba(21, 32, 28, 0.24);
+}
+
+.floating-order-count {
+  min-width: 28px;
+  min-height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--ink);
+}
+
+.floating-order-button strong {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .public-item-title strong {
   flex: 0 0 auto;
   color: var(--leaf-dark);
   font-size: 18px;
+}
+
+.order-page {
+  display: grid;
+  gap: 16px;
+  padding: 28px 0 8px;
+}
+
+.order-list {
+  display: grid;
+  gap: 12px;
+}
+
+.order-item {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto minmax(96px, auto);
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #ded4c3;
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: 0 12px 28px rgba(57, 44, 24, 0.06);
+}
+
+.order-item-image-frame {
+  width: 82px;
+  height: 72px;
+  padding: 4px;
+  border: 1px solid rgba(36, 107, 84, 0.2);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffffff, #edf4ef);
+}
+
+.order-item-image-frame img {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+}
+
+.order-item-copy {
+  min-width: 0;
+}
+
+.order-item h3,
+.order-item p {
+  margin: 0;
+}
+
+.order-item p {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.order-item-controls {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.order-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.order-item-divider {
+  width: 1px;
+  height: 20px;
+  background: #d5c9b8;
+}
+
+.order-item-total {
+  justify-self: end;
+  color: var(--leaf-dark);
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.order-total {
+  position: sticky;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--leaf-dark);
+  border-radius: 8px;
+  background: var(--leaf-dark);
+  color: var(--white);
+  box-shadow: 0 16px 36px rgba(21, 32, 28, 0.22);
+}
+
+.order-total span {
+  font-weight: 800;
+}
+
+.order-total strong {
+  font-size: 24px;
 }
 
 .public-footer {
@@ -1226,6 +1405,43 @@ body.public-body #menu-content.public-menu {
 
   .public-item-title strong {
     align-self: flex-start;
+  }
+
+  .floating-order-button {
+    top: 10px;
+    left: 10px;
+    max-width: calc(100vw - 20px);
+  }
+
+  .floating-order-button strong {
+    display: none;
+  }
+
+  .order-item {
+    grid-template-columns: 74px minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .order-item-controls,
+  .order-item-total {
+    grid-column: 1 / -1;
+  }
+
+  .order-item-controls {
+    justify-items: start;
+  }
+
+  .order-item-total {
+    justify-self: end;
+  }
+
+  .order-total {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .order-item-controls .public-item-actions {
+    width: fit-content;
   }
 
   .toast-container {
