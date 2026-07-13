@@ -14,6 +14,9 @@
   <script src="/static/app.js"></script>
   <script>
     const menuContent = document.getElementById('menu-content');
+    let currentMenu = null;
+    let currentSlug = '';
+    let cartCounts = {};
 
     function formatPrice(value) {
       const raw = String(value || '').trim();
@@ -25,7 +28,108 @@
       return decimal ? `${grouped}.${decimal}` : grouped;
     }
 
+    function parsePriceAmount(value) {
+      const numeric = String(value || '').replace(/[^\d.]/g, '');
+      return Number.parseFloat(numeric) || 0;
+    }
+
+    function cartStorageKey(slug) {
+      return `public-order:${slug}`;
+    }
+
+    function loadCart(slug) {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(cartStorageKey(slug)) || '{}');
+        return Object.fromEntries(
+          Object.entries(parsed)
+            .map(([itemId, count]) => [itemId, Math.max(0, Number.parseInt(count, 10) || 0)])
+            .filter(([, count]) => count > 0)
+        );
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function saveCart() {
+      localStorage.setItem(cartStorageKey(currentSlug), JSON.stringify(cartCounts));
+    }
+
+    function getItemCount(itemId) {
+      return cartCounts[String(itemId)] || 0;
+    }
+
+    function getAvailableCategories(menu) {
+      return menu.categories.map((category) => ({
+        ...category,
+        items: category.items.filter((item) => item.is_available),
+      }));
+    }
+
+    function getAvailableItems(menu) {
+      return getAvailableCategories(menu).flatMap((category) => category.items);
+    }
+
+    function cartTotalCount() {
+      return Object.values(cartCounts).reduce((sum, count) => sum + count, 0);
+    }
+
+    function updateFloatingOrderButton() {
+      const countBadge = document.getElementById('floating-order-count');
+      const totalBadge = document.getElementById('floating-order-total');
+      if (!countBadge || !totalBadge || !currentMenu) return;
+
+      const itemsById = new Map(getAvailableItems(currentMenu).map((item) => [String(item.id), item]));
+      const total = Object.entries(cartCounts).reduce((sum, [itemId, count]) => {
+        const item = itemsById.get(itemId);
+        return item ? sum + parsePriceAmount(item.price) * count : sum;
+      }, 0);
+
+      countBadge.textContent = cartTotalCount();
+      totalBadge.textContent = `${currentMenu.currency} ${formatPrice(total.toFixed(total % 1 ? 2 : 0))}`;
+    }
+
+    function changeItemCount(itemId, delta) {
+      const key = String(itemId);
+      const nextCount = Math.max(0, getItemCount(key) + delta);
+      if (nextCount) {
+        cartCounts[key] = nextCount;
+      } else {
+        delete cartCounts[key];
+      }
+
+      saveCart();
+      document.querySelectorAll(`[data-count-for="${key}"]`).forEach((element) => {
+        element.textContent = nextCount;
+      });
+      document.querySelectorAll(`[data-decrease-for="${key}"]`).forEach((button) => {
+        button.disabled = nextCount === 0;
+      });
+      updateFloatingOrderButton();
+    }
+
+    function bindOrderControls({ rerenderOrder = false } = {}) {
+      menuContent.onclick = (event) => {
+        const button = event.target.closest('[data-cart-action]');
+        if (!button) return;
+
+        const delta = button.dataset.cartAction === 'increase' ? 1 : -1;
+        changeItemCount(button.dataset.itemId, delta);
+        if (rerenderOrder) renderOrderPage(currentMenu);
+      };
+    }
+
+    function floatingOrderButton(menu, label = 'Order') {
+      return `
+        <a class="floating-order-button" href="/m/${menu.slug}/order" aria-label="View order">
+          <span>${label}</span>
+          <span class="floating-order-count" id="floating-order-count">0</span>
+          <strong id="floating-order-total">${escapeHtml(menu.currency)} 0</strong>
+        </a>
+      `;
+    }
+
     function itemMarkup(menu, item) {
+      const count = getItemCount(item.id);
       return `
         <article class="public-item">
           <div class="public-item-image-frame">
@@ -37,6 +141,11 @@
               <strong>${escapeHtml(menu.currency)} ${escapeHtml(formatPrice(item.price))}</strong>
             </div>
             ${item.details ? `<p>${escapeHtml(item.details)}</p>` : ''}
+            <div class="public-item-actions">
+              <button class="quantity-button" type="button" data-cart-action="decrease" data-item-id="${item.id}" data-decrease-for="${item.id}" ${count ? '' : 'disabled'} aria-label="Remove ${escapeHtml(item.name)}">-</button>
+              <span class="quantity-count" data-count-for="${item.id}">${count}</span>
+              <button class="quantity-button" type="button" data-cart-action="increase" data-item-id="${item.id}" aria-label="Add ${escapeHtml(item.name)}">+</button>
+            </div>
           </div>
         </article>
       `;
@@ -47,12 +156,10 @@
       document.body.style.backgroundImage = menu.background_image_path
         ? `linear-gradient(180deg, rgba(20, 28, 24, 0.32), rgba(20, 28, 24, 0.38)), url("${menu.background_image_path}")`
         : '';
-      const availableCategories = menu.categories.map((category) => ({
-        ...category,
-        items: category.items.filter((item) => item.is_available),
-      }));
+      const availableCategories = getAvailableCategories(menu);
 
       menuContent.innerHTML = `
+        ${floatingOrderButton(menu)}
         <header class="public-header">
           <a class="other-menus-link" href="/r/${menu.owner_id}">منوهای دیگر</a>
           <p class="restaurant-name">${escapeHtml(menu.restaurant_name)}</p>
@@ -84,6 +191,73 @@
         </footer>
       `;
       bindCategoryTabs();
+      bindOrderControls();
+      updateFloatingOrderButton();
+    }
+
+    function orderItemMarkup(menu, item, count) {
+      const itemTotal = parsePriceAmount(item.price) * count;
+      return `
+        <article class="order-item">
+          <div class="order-item-image-frame">
+            ${item.image_path ? `<img src="${item.image_path}" alt="${escapeHtml(item.name)}">` : '<div class="image-placeholder public-placeholder">No image</div>'}
+          </div>
+          <div class="order-item-copy">
+            <h3>${escapeHtml(item.name)}</h3>
+            <p>${escapeHtml(menu.currency)} ${escapeHtml(formatPrice(item.price))}</p>
+          </div>
+          <div class="order-item-controls">
+            <div class="order-item-meta">
+              <span>${escapeHtml(menu.currency)} ${escapeHtml(formatPrice(item.price))}</span>
+              <span class="order-item-divider" aria-hidden="true"></span>
+              <span>Count ${count}</span>
+            </div>
+            <div class="public-item-actions">
+              <button class="quantity-button" type="button" data-cart-action="decrease" data-item-id="${item.id}" data-decrease-for="${item.id}" aria-label="Remove ${escapeHtml(item.name)}">-</button>
+              <span class="quantity-count" data-count-for="${item.id}">${count}</span>
+              <button class="quantity-button" type="button" data-cart-action="increase" data-item-id="${item.id}" aria-label="Add ${escapeHtml(item.name)}">+</button>
+            </div>
+          </div>
+          <strong class="order-item-total">${escapeHtml(menu.currency)} ${escapeHtml(formatPrice(itemTotal.toFixed(itemTotal % 1 ? 2 : 0)))}</strong>
+        </article>
+      `;
+    }
+
+    function renderOrderPage(menu) {
+      document.title = `Order - ${menu.title}`;
+      const itemsById = new Map(getAvailableItems(menu).map((item) => [String(item.id), item]));
+      const selectedItems = Object.entries(cartCounts)
+        .map(([itemId, count]) => ({ item: itemsById.get(itemId), count }))
+        .filter(({ item, count }) => item && count > 0);
+      const finalTotal = selectedItems.reduce((sum, { item, count }) => (
+        sum + parsePriceAmount(item.price) * count
+      ), 0);
+
+      menuContent.innerHTML = `
+        ${floatingOrderButton(menu)}
+        <header class="public-header order-header">
+          <a class="other-menus-link" href="/m/${menu.slug}">Back to menu</a>
+          <p class="restaurant-name">${escapeHtml(menu.restaurant_name)}</p>
+          <h1>Order</h1>
+        </header>
+        <section class="order-page">
+          ${selectedItems.length ? `
+            <div class="order-list">
+              ${selectedItems.map(({ item, count }) => orderItemMarkup(menu, item, count)).join('')}
+            </div>
+            <div class="order-total">
+              <span>Final pay</span>
+              <strong>${escapeHtml(menu.currency)} ${escapeHtml(formatPrice(finalTotal.toFixed(finalTotal % 1 ? 2 : 0)))}</strong>
+            </div>
+          ` : `
+            <section class="empty-state order-empty">
+              Your order is empty. Go back to the menu and add items with +.
+            </section>
+          `}
+        </section>
+      `;
+      bindOrderControls({ rerenderOrder: true });
+      updateFloatingOrderButton();
     }
 
     function setActiveCategory(categoryId) {
@@ -118,14 +292,22 @@
     }
 
     async function loadMenu() {
-      const slug = location.pathname.split('/m/')[1];
+      const pathAfterMenu = location.pathname.split('/m/')[1] || '';
+      const [slug, page] = pathAfterMenu.split('/');
       if (!slug) {
         menuContent.innerHTML = '<section class="empty-state">منو پیدا نشد.</section>';
         return;
       }
 
       try {
-        renderPublicMenu(await apiFetch(`/api/m/${slug}`));
+        currentSlug = slug;
+        cartCounts = loadCart(slug);
+        currentMenu = await apiFetch(`/api/m/${slug}`);
+        if (page === 'order') {
+          renderOrderPage(currentMenu);
+          return;
+        }
+        renderPublicMenu(currentMenu);
       } catch (error) {
         menuContent.innerHTML = `<section class="empty-state">${escapeHtml(error.message)}</section>`;
       }

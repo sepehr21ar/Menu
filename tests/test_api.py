@@ -106,6 +106,10 @@ def test_public_menu_and_dynamic_qr(client):
     assert menus_response.status_code == 200
     assert menus_response.json()[0]["slug"] == menu["slug"]
 
+    order_page_response = client.get(f"/m/{menu['slug']}/order")
+    assert order_page_response.status_code == 200
+    assert b"menu-content" in order_page_response.content
+
 
 def test_optional_images_and_background_upload(client):
     signup(client)
